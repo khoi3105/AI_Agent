@@ -5,7 +5,8 @@
 
 class LLMClient {
 public:
-    virtual std::string chat(std::string prompt) = 0;
+    virtual std::string chat(const std::string& user_prompt) = 0;
+    virtual ~LLMClient() = default;
 };
 
 #endif
