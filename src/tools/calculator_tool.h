@@ -2,11 +2,16 @@
 #define CALCULATOR_TOOL_H
 
 #include "tool.h"
+#include "exprtk.hpp"
+#include <expected>
+#include <sstream>
 
 /**
  * @brief Công cụ tính toán biểu thức số học (Cụ thể hóa từ Lớp trừu tượng Tool)
  */
 class CalculatorTool : public Tool {
+private:
+    static std::expected<std::string, std::string> evaluate(const std::string& expr);
 public:
     CalculatorTool() = default;
     ~CalculatorTool() override = default;
