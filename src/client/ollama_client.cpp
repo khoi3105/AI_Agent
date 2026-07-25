@@ -1,4 +1,5 @@
 #include "ollama_client.h"
+#include "../utils/base64_encoder.h"
 #include <iostream>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -12,13 +13,16 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* use
     return totalSize;
 }
 
-string OllamaClient::chat(const string& user_prompt) {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    CURL* curl = curl_easy_init();
+std::expected<std::string, std::string> OllamaClient::chat(const std::string& user_prompt, const std::vector<std::string>& image_paths) {
+    // 0. Khởi tạo libcurl
+    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
+        return std::unexpected("Lỗi khởi tạo libcurl global!");
+    }
 
+    CURL* curl = curl_easy_init();
     if (!curl) {
-        cerr << "Loi khoi tao libcurl!" << endl;
-        return "";
+        curl_global_cleanup();
+        return std::unexpected("Lỗi khởi tạo session curl easy!");
     }
 
     // std::string system_prompt = 
@@ -28,30 +32,89 @@ string OllamaClient::chat(const string& user_prompt) {
     // "{\"tool\": \"tên_tool\", \"args\": \"tham_số\"}\n"
     // "Nếu không cần tool, trả về câu trả lời trực tiếp.";
 
-    std::string system_prompt = R"(Bạn là trợ lý AI có khả năng sử dụng các công cụ sau:
-    calculator, công cụ này nhận vào operator (+,-,*,/), 2 operand tương ứng và trả về kết quả phép tính
+    nlohmann::json user_msg;
+    if (image_paths.empty()) {
+        // Nếu không có ảnh, content chỉ cần là string đơn thuần
+        user_msg = {
+            {"role", "user"},
+            {"content", user_prompt}
+        };
+    } else {
+        // Nếu có ảnh, content sẽ là mảng chứa cả text và các image_url
+        nlohmann::json content_array = nlohmann::json::array();
+        
+        // 1. Thêm prompt text vào mảng
+        content_array.push_back({
+            {"type", "text"},
+            {"text", user_prompt}
+        });
 
-    Nhiệm vụ: Phân tích yêu cầu người dùng. Nếu cần dùng tool, CHỈ trả về JSON:
-    {"tool": "tên_tool", "args": "tham_số"}
+        // 2. Thêm từng ảnh base64 vào mảng theo chuẩn OpenAI / NIM
+        for (const auto& img_path : image_paths) {
+            auto b64_result = Base64Encoder::encodeFile(img_path);
+            if (b64_result.has_value()) {
+                // Giả định định dạng ảnh (jpeg/png). Bạn có thể đổi sang png nếu dùng png.
+                std::string base64_url = "data:image/jpeg;base64," + b64_result.value();
+                
+                content_array.push_back({
+                    {"type", "image_url"},
+                    {"image_url", {
+                        {"url", base64_url}
+                    }}
+                });
+            } else {
+                // Đừng quên dọn dẹp curl nếu return sớm giữa chừng
+                curl_easy_cleanup(curl);
+                curl_global_cleanup();
+                return std::unexpected(b64_result.error());
+            }
+        }
 
-    Nếu không cần tool, trả về câu trả lời trực tiếp.)";
+        user_msg = {
+            {"role", "user"},
+            {"content", content_array}
+        };
+    }
+
+    nlohmann::json tools_schema = nlohmann::json::array({
+        {
+            {"type", "function"},
+            {"function", {
+                {"name", "calculator"},
+                {"description", "Thực hiện phép tính số học giữa 2 số"},
+                {"parameters", {
+                    {"type", "object"},
+                    {"properties", {
+                        {"operand_1", {{"type", "number"}}},
+                        {"operator", {{"type", "string"}, {"enum", {"+", "-", "*", "/"}}}},
+                        {"operand_2", {{"type", "number"}}}
+                    }},
+                    {"required", {"operand_1", "operator", "operand_2"}}
+                }}
+            }}
+        }
+    });
+
+    std::string system_prompt = 
+    "Bạn là một trợ lý AI thông minh và hữu ích.\n"
+    "Hãy sử dụng các công cụ được cung cấp khi cần thiết để trả lời câu hỏi của người dùng một cách chính xác.\n"
+    "Nếu câu hỏi không yêu cầu công cụ, hãy trả lời trực tiếp bằng văn bản rõ ràng, ngắn gọn.";
+
     // 1. Create payload
     nlohmann::json payload = {
         {"model", _modelName},
         {"messages", nlohmann::json::array({
             {
                 {"role", "system"},
-                {"content", system_prompt
-                }
+                {"content", system_prompt}
             },
-            {
-                {"role", "user"},
-                {"content", user_prompt}
-            }
+            user_msg
         })},
-        {"response_format", {{"type", "json_object"}}},
-        {"max_tokens", 128},
-        {"temperature", 0.00}
+        {"tools", tools_schema},
+        {"temperature", 0.1},
+        {"top_p", 1.0},
+        {"max_tokens", 16384},
+        {"stream", false}
     };
     string json_str = payload.dump();
 
@@ -71,23 +134,36 @@ string OllamaClient::chat(const string& user_prompt) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
 
-    // 4. Exec & Extract Content string
-    string content_str = "";
+    // 5. Thực thi Request
     CURLcode res = curl_easy_perform(curl);
-    if (res == CURLE_OK) {
-        try {
-            auto response_json = nlohmann::json::parse(response_string);
-            content_str = response_json["choices"][0]["message"]["content"];
-        } catch (const exception& e) {
-            cerr << "Loi parse API JSON response: " << e.what() << std::endl;
-        }
-    }
-
+    
+    // Đảm bảo luôn dọn dẹp tài nguyên curl sau khi request xong
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     curl_global_cleanup();
 
-    // cout << content_str << endl;
+    // Bắt lỗi kết nối HTTP / Curl
+    if (res != CURLE_OK) {
+        return std::unexpected(string("Lỗi curl request: ") + curl_easy_strerror(res));
+    }
 
-    return content_str; // Trả về duy nhất chuỗi text JSON do AI sinh ra
+    cout << response_string << endl;
+
+    // 6. Parse JSON Response và bắt lỗi định dạng
+    try {
+        auto response_json = nlohmann::json::parse(response_string);
+
+        // Kiểm tra xem trường dữ liệu mong muốn có tồn tại không
+        if (!response_json.contains("choices") || response_json["choices"].empty()) {
+            return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
+        }
+
+        std::string content_str = response_json["choices"][0]["message"]["content"];
+        
+        // Thành công: Trả về trực tiếp chuỗi kết quả
+        return content_str; 
+
+    } catch (const nlohmann::json::exception& e) {
+        return std::unexpected(string("Lỗi parse API JSON response: ") + e.what());
+    }
 }
