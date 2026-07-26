@@ -4,8 +4,6 @@
 #include "tool.h"
 #include "exprtk.hpp"
 #include <expected>
-#include <sstream>
-
 /**
  * @brief Công cụ tính toán biểu thức số học (Cụ thể hóa từ Lớp trừu tượng Tool)
  */
