@@ -5,13 +5,9 @@
 #include <cstdlib> //std::env
 #include <nlohmann/json.hpp>
 
-// Include các file header trong dự án của bạn
+// Include các file header trong dự án
 #include "client/ollama_client.h"
-
-std::string getEnvVar(const char* name, const std::string& defaultValue = "") {
-    const char* val = std::getenv(name);
-    return (val != nullptr) ? std::string(val) : defaultValue;
-}
+#include "utils/env_utils.h"
 
 int main() {
     // 1. Khai báo thông tin API
@@ -28,8 +24,9 @@ int main() {
     // ToolRegistry registry;
 
     // 4. Chuẩn bị câu hỏi (Task) từ người dùng
-    std::string user_task = "Tinh giup toi phep tinh 15 * 17";
-    // std::string user_task = "thực hiện";
+    // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
+    // std::string user_task = "Doraemon là ai vậy?";
+    std::string user_task = "Thực hiện phép tính 20 + 10 ";
 
     std::cout << "[3] User Task: \"" << user_task << "\"" << std::endl << std::endl;
     std::vector<std::string> images_path = {
@@ -45,7 +42,7 @@ int main() {
         std::cout << llm_response.error() << std::endl;
     }
 
-    // 6. Bóc tách JSON response từ AI trực tiếp tại main (Thử nghiệm cho POC)
+    // // 6. Bóc tách JSON response từ AI trực tiếp tại main (Thử nghiệm cho POC)
     // if (llm_response.empty()) {
     //     std::cerr << "[X] Loi: AI khong tra ve du lieu!" << std::endl;
     //     return 1;

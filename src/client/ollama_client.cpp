@@ -25,12 +25,7 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
         return std::unexpected("Lỗi khởi tạo session curl easy!");
     }
 
-    // std::string system_prompt = 
-    // "Bạn là trợ lý AI có khả năng sử dụng các công cụ sau:\n" + 
-    // registry.getToolDescriptions() + "\n" +
-    // "Nhiệm vụ: Phân tích yêu cầu người dùng. Nếu cần dùng tool, CHỈ trả về JSON:\n"
-    // "{\"tool\": \"tên_tool\", \"args\": \"tham_số\"}\n"
-    // "Nếu không cần tool, trả về câu trả lời trực tiếp.";
+    
 
     nlohmann::json user_msg;
     if (image_paths.empty()) {
@@ -95,27 +90,94 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
         }
     });
 
-    std::string system_prompt = 
-    "Bạn là một trợ lý AI thông minh và hữu ích.\n"
-    "Hãy sử dụng các công cụ được cung cấp khi cần thiết để trả lời câu hỏi của người dùng một cách chính xác.\n"
-    "Nếu câu hỏi không yêu cầu công cụ, hãy trả lời trực tiếp bằng văn bản rõ ràng, ngắn gọn.";
+    // std::string system_prompt = R"(Bạn là một Trợ lý AI thông minh.
 
-    // 1. Create payload
+    // QUY TẮC PHẢN HỒI:
+    // 1. TRẢ LỜI TRỰC TIẾP (Mặc định): Với các câu hỏi về kiến thức, nhân vật, trò chuyện, văn bản hoặc khi KHÔNG liên quan đến tính toán, bạn BẮT BUỘC phải trả lời trực tiếp bằng văn bản tự nhiên.
+    // 2. GỌI CÔNG CỤ (Chỉ khi cần): CHỈ ĐƯỢC gọi công cụ 'calculator' khi người dùng đưa ra phép tính số học cụ thể.
+
+    // CẤM (NEGATIVE CONSTRAINTS):
+    // - TUYỆT ĐỐI KHÔNG gọi công cụ 'calculator' nếu câu hỏi của người dùng KHÔNG chứa số hoặc KHÔNG yêu cầu tính toán.
+    // - KHÔNG tự bịa ra con số hoặc phép tính khi người dùng hỏi các câu hỏi chữ (như hỏi nhân vật, địa danh, khái niệm).)";
+
+    std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
+
+    === DANH SÁCH CÔNG CỤ CÓ SẴN (TOOLS) ===
+    - calculator: Thực hiện các phép tính số học (cộng, trừ, nhân, chia) trên các con số cụ thể.
+    {{TOOLS_SCHEMA_PLACEHOLDER}}
+
+    === QUY TẮC XỬ LÝ ĐẦU VÀO ===
+    Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
+
+    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Khi và chỉ khi yêu cầu chứa phép tính toán số học cụ thể)
+    JSON Output:
+    {
+    "type": "tool_call",
+    "tool": "<tên_tool>",
+    "args": { <các_tham_số> }
+    }
+
+    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, văn bản)
+    JSON Output:
+    {
+    "type": "response",
+    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_của_bạn>"
+    }
+
+    === RÀNG BUỘC LOẠI TRỪ NGHIÊM NGẶT (NEGATIVE CONSTRAINTS) ===
+    - KHÔNG gọi tool 'calculator' nếu câu hỏi KHÔNG chứa số liệu hoặc KHÔNG có yêu cầu tính toán rõ ràng.
+    - KHÔNG tự bịa ra các con số hoặc phép tính ngẫu nhiên (như 10 + 5) khi người dùng hỏi các câu hỏi chữ/kiến thức (như nhân vật, địa danh, trò chuyện).
+    - KHÔNG gán cả biểu thức toán học phức tạp vào một tham số đơn lẻ; hãy tách thành từng bước tính hoặc từng tham số số học cụ thể.
+    - KHÔNG trả về văn bản tự do ngoài cấu trúc JSON quy định.
+
+    === CƠ CHẾ TRẢ LỜI KIẾN THỨC ===
+    - Đối với các câu hỏi về nhân vật, khái niệm, kiến thức chung (như nhân vật hoạt hình, lịch sử, khoa học...): Hãy sử dụng kiến thức có sẵn của bạn để trả lời ngắn gọn, chính xác trong ĐỊNH DẠNG 2.
+    - Chỉ trả lời "Hiện tại tôi chưa có đủ thông tin về vấn đề này" nếu đó là một thông tin riêng tư, mật hoặc thực sự nằm ngoài tri thức của bạn.)";
+
     nlohmann::json payload = {
         {"model", _modelName},
         {"messages", nlohmann::json::array({
+            {{"role", "system"}, {"content", system_prompt}},
+            
+            // Ví dụ 1: Câu hỏi chữ
+            {{"role", "user"}, {"content", "Thủ đô của Việt Nam là gì?"}},
+            {{"role", "assistant"}, {"content", "Thủ đô của Việt Nam là Hà Nội."}},
+
+            // Ví dụ 2: Ví dụ về Calculator
+            {{"role", "user"}, {"content", "Tính 15 cộng 35"}},
             {
-                {"role", "system"},
-                {"content", system_prompt}
+                {"role", "assistant"},
+                {"content", nullptr},
+                {"tool_calls", nlohmann::json::array({
+                    {
+                        {"id", "call_example_1"},
+                        {"type", "function"},
+                        {"function", {
+                            {"name", "calculator"},
+                            {"arguments", "{\"operand_1\": 15, \"operator\": \"+\", \"operand_2\": 35}"}
+                        }}
+                    }
+                })}
             },
+            // Phản hồi của tool
+            {
+                {"role", "tool"},
+                {"tool_call_id", "call_example_1"},
+                {"name", "calculator"},
+                {"content", "50"}
+            },
+
+            // Câu hỏi thực tế của User
             user_msg
         })},
         {"tools", tools_schema},
+        {"tool_choice", "auto"},
         {"temperature", 0.1},
         {"top_p", 1.0},
         {"max_tokens", 16384},
         {"stream", false}
     };
+    
     string json_str = payload.dump();
 
     // 2. Headers
@@ -158,10 +220,10 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
             return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
         }
 
-        std::string content_str = response_json["choices"][0]["message"]["content"];
+        std::string message_str = response_json["choices"][0]["message"];
         
         // Thành công: Trả về trực tiếp chuỗi kết quả
-        return content_str; 
+        return message_str; 
 
     } catch (const nlohmann::json::exception& e) {
         return std::unexpected(string("Lỗi parse API JSON response: ") + e.what());
