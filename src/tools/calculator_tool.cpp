@@ -1,6 +1,9 @@
 #include "calculator_tool.h"
 #include <sstream>
 #include <cmath>
+#include "exprtk.hpp"
+#include <expected>
+
 std::string CalculatorTool::getName() const {
     return "calculator";
 }
@@ -37,4 +40,22 @@ std::expected<std::string, std::string> CalculatorTool::evaluate(const std::stri
         return std::unexpected("Không xác định");
     }
     return std::to_string(expression.value());
+  
+nlohmann::json CalculatorTool::get_schema() const {
+    return {
+        {"type", "function"},
+        {"function", {
+            {"name", getName()},
+            {"description", getDescription()},
+            {"parameters", {
+                {"type", "object"},
+                {"properties", {
+                    {"operand_1", {{"type", "number"}}},
+                    {"operator", {{"type", "string"}, {"enum", {"+", "-", "*", "/"}}}},
+                    {"operand_2", {{"type", "number"}}}
+                }},
+                {"required", {"operand_1", "operator", "operand_2"}}
+            }}
+        }}
+    };
 }
