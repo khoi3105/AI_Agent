@@ -1,6 +1,9 @@
 #ifndef CALCULATOR_TOOL_H
 #define CALCULATOR_TOOL_H
 
+#include <expected>
+#include <string>
+
 #include "tool.h"
 #include "exprtk.hpp"
 #include <expected>
@@ -21,6 +24,8 @@ public:
      * @brief Thực thi tính toán biểu thức số học (ví dụ: "15 * 17" hoặc "2 + 3 * 4")
      */
     std::string execute(const std::string& args) override;
+
+    nlohmann::json get_schema() const override;
 };
 
 #endif // CALCULATOR_TOOL_H

@@ -1,4 +1,6 @@
 #include "ollama_client.h"
+#include "../utils/base64_encoder.h"
+#include "../tools/tool.h"
 #include <iostream>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -17,25 +19,112 @@ string OllamaClient::chat(const string& user_prompt) {
     CURL* curl = curl_easy_init();
 
     if (!curl) {
-        cerr << "Loi khoi tao libcurl!" << endl;
-        return "";
+        curl_global_cleanup();
+        return std::unexpected("Lỗi khởi tạo session curl easy!");
     }
 
-    // std::string system_prompt = 
-    // "Bạn là trợ lý AI có khả năng sử dụng các công cụ sau:\n" + 
-    // registry.getToolDescriptions() + "\n" +
-    // "Nhiệm vụ: Phân tích yêu cầu người dùng. Nếu cần dùng tool, CHỈ trả về JSON:\n"
-    // "{\"tool\": \"tên_tool\", \"args\": \"tham_số\"}\n"
-    // "Nếu không cần tool, trả về câu trả lời trực tiếp.";
+    
 
-    std::string system_prompt = R"(Bạn là trợ lý AI có khả năng sử dụng các công cụ sau:
-    calculator, công cụ này nhận vào operator (+,-,*,/), 2 operand tương ứng và trả về kết quả phép tính
+    nlohmann::json user_msg;
+    if (image_paths.empty()) {
+        // Nếu không có ảnh, content chỉ cần là string đơn thuần
+        user_msg = {
+            {"role", "user"},
+            {"content", user_prompt}
+        };
+    } else {
+        // Nếu có ảnh, content sẽ là mảng chứa cả text và các image_url
+        nlohmann::json content_array = nlohmann::json::array();
+        
+        // 1. Thêm prompt text vào mảng
+        content_array.push_back({
+            {"type", "text"},
+            {"text", user_prompt}
+        });
 
-    Nhiệm vụ: Phân tích yêu cầu người dùng. Nếu cần dùng tool, CHỈ trả về JSON:
-    {"tool": "tên_tool", "args": "tham_số"}
+        // 2. Thêm từng ảnh base64 vào mảng theo chuẩn OpenAI / NIM
+        for (const auto& img_path : image_paths) {
+            auto b64_result = Base64Encoder::encodeFile(img_path);
+            if (b64_result.has_value()) {
+                // Giả định định dạng ảnh (jpeg/png). Bạn có thể đổi sang png nếu dùng png.
+                std::string base64_url = "data:image/jpeg;base64," + b64_result.value();
+                
+                content_array.push_back({
+                    {"type", "image_url"},
+                    {"image_url", {
+                        {"url", base64_url}
+                    }}
+                });
+            } else {
+                // Đừng quên dọn dẹp curl nếu return sớm giữa chừng
+                curl_easy_cleanup(curl);
+                curl_global_cleanup();
+                return std::unexpected(b64_result.error());
+            }
+        }
 
-    Nếu không cần tool, trả về câu trả lời trực tiếp.)";
-    // 1. Create payload
+        user_msg = {
+            {"role", "user"},
+            {"content", content_array}
+        };
+    }
+
+    // Lấy Schema ( Không hardcode ) 
+    // nlohmann::json tools_schema = registry.get_all_schemas();
+
+    nlohmann::json tools_schema = nlohmann::json::array({
+        {
+            {"type", "function"},
+            {"function", {
+                {"name", "calculator"},
+                {"description", "Thực hiện phép tính số học giữa 2 số"},
+                {"parameters", {
+                    {"type", "object"},
+                    {"properties", {
+                        {"operand_1", {{"type", "number"}}},
+                        {"operator", {{"type", "string"}, {"enum", {"+", "-", "*", "/"}}}},
+                        {"operand_2", {{"type", "number"}}}
+                    }},
+                    {"required", {"operand_1", "operator", "operand_2"}}
+                }}
+            }}
+        }
+    });
+
+    std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
+
+    === DANH SÁCH CÔNG CỤ CÓ SẴN (TOOLS) ===
+    - calculator: Thực hiện các phép tính số học (cộng, trừ, nhân, chia) trên các con số cụ thể.
+    {{TOOLS_SCHEMA_PLACEHOLDER}}
+
+    === QUY TẮC XỬ LÝ ĐẦU VÀO ===
+    Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
+
+    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Khi và chỉ khi yêu cầu chứa phép tính toán số học cụ thể)
+    JSON Output:
+    {
+    "type": "tool_call",
+    "tool": "<tên_tool>",
+    "args": { <các_tham_số> }
+    }
+
+    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, văn bản)
+    JSON Output:
+    {
+    "type": "response",
+    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_của_bạn>"
+    }
+
+    === RÀNG BUỘC LOẠI TRỪ NGHIÊM NGẶT (NEGATIVE CONSTRAINTS) ===
+    - KHÔNG gọi tool 'calculator' nếu câu hỏi KHÔNG chứa số liệu hoặc KHÔNG có yêu cầu tính toán rõ ràng.
+    - KHÔNG tự bịa ra các con số hoặc phép tính ngẫu nhiên (như 10 + 5) khi người dùng hỏi các câu hỏi chữ/kiến thức (như nhân vật, địa danh, trò chuyện).
+    - KHÔNG gán cả biểu thức toán học phức tạp vào một tham số đơn lẻ; hãy tách thành từng bước tính hoặc từng tham số số học cụ thể.
+    - KHÔNG trả về văn bản tự do ngoài cấu trúc JSON quy định.
+
+    === CƠ CHẾ TRẢ LỜI KIẾN THỨC ===
+    - Đối với các câu hỏi về nhân vật, khái niệm, kiến thức chung (như nhân vật hoạt hình, lịch sử, khoa học...): Hãy sử dụng kiến thức có sẵn của bạn để trả lời ngắn gọn, chính xác trong ĐỊNH DẠNG 2.
+    - Chỉ trả lời "Hiện tại tôi chưa có đủ thông tin về vấn đề này" nếu đó là một thông tin riêng tư, mật hoặc thực sự nằm ngoài tri thức của bạn.)";
+
     nlohmann::json payload = {
         {"model", _modelName},
         {"messages", nlohmann::json::array({
