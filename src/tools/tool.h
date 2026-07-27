@@ -1,6 +1,7 @@
 #ifndef TOOL_H
 #define TOOL_H
 
+#include <nlohmann/json.hpp>
 #include <string>
 
 /**
@@ -27,6 +28,13 @@ public:
      * @return Kết quả trả về dạng chuỗi văn bản (stdout/kết quả tính toán)
      */
     virtual std::string execute(const std::string& args) = 0;
+
+    /**
+     * @brief Lấy JSON Schema cấu trúc của Tool (theo chuẩn Ollama / OpenAI Tool Calling)
+     * @return nlohmann::json chứa tên, mô tả và thông số tham số (parameters) 
+     * để inject vào mảng "tools" trong payload gửi tới LLM.
+     */
+    virtual nlohmann::json get_schema() const = 0; 
 };
 
 #endif // TOOL_H
