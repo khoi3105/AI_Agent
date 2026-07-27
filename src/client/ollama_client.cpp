@@ -1,5 +1,6 @@
 #include "ollama_client.h"
 #include "../utils/base64_encoder.h"
+#include "../tools/tool.h"
 #include <iostream>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -71,6 +72,9 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
         };
     }
 
+    // Lấy Schema ( Không hardcode ) 
+    // nlohmann::json tools_schema = registry.get_all_schemas();
+
     nlohmann::json tools_schema = nlohmann::json::array({
         {
             {"type", "function"},
@@ -89,16 +93,6 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
             }}
         }
     });
-
-    // std::string system_prompt = R"(Bạn là một Trợ lý AI thông minh.
-
-    // QUY TẮC PHẢN HỒI:
-    // 1. TRẢ LỜI TRỰC TIẾP (Mặc định): Với các câu hỏi về kiến thức, nhân vật, trò chuyện, văn bản hoặc khi KHÔNG liên quan đến tính toán, bạn BẮT BUỘC phải trả lời trực tiếp bằng văn bản tự nhiên.
-    // 2. GỌI CÔNG CỤ (Chỉ khi cần): CHỈ ĐƯỢC gọi công cụ 'calculator' khi người dùng đưa ra phép tính số học cụ thể.
-
-    // CẤM (NEGATIVE CONSTRAINTS):
-    // - TUYỆT ĐỐI KHÔNG gọi công cụ 'calculator' nếu câu hỏi của người dùng KHÔNG chứa số hoặc KHÔNG yêu cầu tính toán.
-    // - KHÔNG tự bịa ra con số hoặc phép tính khi người dùng hỏi các câu hỏi chữ (như hỏi nhân vật, địa danh, khái niệm).)";
 
     std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
 
