@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <iostream>
+#include <memory>
 
 /**
  * @brief Lớp quản lý Tool đơn giản cho giai đoạn POC.
@@ -14,12 +15,17 @@
 class ToolRegistry {
 private:
     // Lưu trữ danh sách con trỏ Tool (Hardcode ở POC)
-    std::unordered_map<std::string, Tool*> tools;
+    std::unordered_map<std::string, std::shared_ptr<Tool>> _tools;
 public:
     // Constructor POC: Tự động khởi tạo cứng (Hardcode) các Tool hiện có
     ToolRegistry();
     // Destructor: Giải phóng bộ nhớ các tool đã new trong constructor
     ~ToolRegistry();
+    
+    std::expected<void, std::string> registerTool(std::shared_ptr<Tool> tool);
+
+    std::expected<void, std::string> unregisterTool(const std::string& name);
+
     /**
      * @brief Lấy con trỏ Tool theo tên ("calculator")
      */

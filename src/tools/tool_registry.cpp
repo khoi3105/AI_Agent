@@ -1,39 +1,37 @@
 #include "tool_registry.h"
-ToolRegistry::ToolRegistry() {
-    // Hardcode tạo sẵn CalculatorTool
-    CalculatorTool* calc = new CalculatorTool();
-    tools[calc->getName()] = calc;
+#include <stdexcept>
+
+ToolRegistry::ToolRegistry(){
+    auto result = registerTool(std::make_shared<CalculatorTool>());
+    if (!result)
+        throw std::runtime_error(result.error());
 }
 
-ToolRegistry::~ToolRegistry() {
-    for (auto& pair : tools) {
-        delete pair.second;
-    }
-    tools.clear();
+ToolRegistry::~ToolRegistry(){
+    _tools.clear();
 }
 
 std::expected<void, std::string> ToolRegistry::registerTool(std::shared_ptr<Tool> tool)
 {
     if (!tool) return std::unexpected("Tool rỗng.");
     std::string name = tool->getName();
-    if (tools.contains(name)) return std::unexpected("Tool đã tồn tại.");
-    tools.emplace(name, std::move(tool));
+    if (_tools.contains(name)) return std::unexpected("Tool đã tồn tại.");
+    _tools.emplace(name, std::move(tool));
     return {};
 }
 
 std::expected<void, std::string> ToolRegistry::unregisterTool(const std::string& name)
 {
-    auto it = tools.find(name);
-    if (it == tools.end())
-        return std::unexpected("Không tìm thấy tool." + name);
-    tools.erase(it);
+    auto it = _tools.find(name);
+    if (it == _tools.end()) return std::unexpected("Không tìm thấy tool." + name);
+    _tools.erase(it);
     return {};
 }
 
-Tool* ToolRegistry::getTool(const std::string& name) {
-    if (tools.find(name) != tools.end()) {
-        return tools[name];
-    }
+Tool* ToolRegistry::getTool(const std::string& name){
+    auto it = _tools.find(name);
+    if (it != _tools.end())
+        return it->second.get();
     return nullptr;
 }
 
