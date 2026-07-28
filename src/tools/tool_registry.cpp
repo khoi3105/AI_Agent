@@ -42,3 +42,11 @@ std::string ToolRegistry::executeTool(const std::string& name, const std::string
     }
     return "Lỗi: Không tìm thấy tool " + name;
 }
+
+nlohmann::json ToolRegistry::get_all_schemas() const {
+    auto schemas = nlohmann::json::array();
+    for (const auto& [name, tool] : _tools) {
+        schemas.push_back(tool->get_schema());
+    }
+    return schemas;
+}

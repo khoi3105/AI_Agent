@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 #include <cstdlib> //std::env
+#include "tools/tool_registry.h"
+#include "agent/tool_call_parser.h"
 #include <nlohmann/json.hpp>
 
 // Include các file header trong dự án
@@ -26,7 +28,9 @@ int main() {
     // 4. Chuẩn bị câu hỏi (Task) từ người dùng
     // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
     // std::string user_task = "Doraemon là ai vậy?";
-    std::string user_task = "Thực hiện phép tính 20 + 10 ";
+    std::string user_task;
+    getline(std::cin, user_task);
+    // std::string user_task = "Thực hiện phép tính 20 + 10 ";
 
     std::cout << "[3] User Task: \"" << user_task << "\"" << std::endl << std::endl;
     std::vector<std::string> images_path = {
@@ -41,6 +45,15 @@ int main() {
     } else {
         std::cout << llm_response.error() << std::endl;
     }
+
+    // Lay operator, operand / content
+    ToolCallRequest req;
+    req = ToolCallParser::parse(*llm_response);
+    std::cout << req.args;
+
+    ToolRegistry registry;
+    std::string result = registry.executeTool(req.tool_name, req.args);
+    std::cout << result;
 
     // // 6. Bóc tách JSON response từ AI trực tiếp tại main (Thử nghiệm cho POC)
     // if (llm_response.empty()) {

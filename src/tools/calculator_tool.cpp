@@ -47,15 +47,16 @@ nlohmann::json CalculatorTool::get_schema() const {
         {"type", "function"},
         {"function", {
             {"name", getName()},
-            {"description", getDescription()},
+            {"description", "Đánh giá biểu thức toán học phức tạp bằng ExprTk (hỗ trợ +, -, *, /, mũ ^, ngoặc (), hàm lượng giác, v.v.)"},
             {"parameters", {
                 {"type", "object"},
                 {"properties", {
-                    {"operand_1", {{"type", "number"}}},
-                    {"operator", {{"type", "string"}, {"enum", {"+", "-", "*", "/"}}}},
-                    {"operand_2", {{"type", "number"}}}
+                    {"expression", {
+                        {"type", "string"},
+                        {"description", "Biểu thức toán học cần tính toán, ví dụ: '3.5 * (2 + 4.5)' hoặc 'sqrt(16) + sin(3.14)'"}
+                    }}
                 }},
-                {"required", {"operand_1", "operator", "operand_2"}}
+                {"required", {"expression"}}
             }}
         }}
     };

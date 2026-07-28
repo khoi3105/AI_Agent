@@ -3,6 +3,6 @@
 
 #include <string>
 
-std::string getEnvVar(const char* name, const std::string& defaultValue = "");
+std::string getEnvVar(const char* name);
 
 #endif

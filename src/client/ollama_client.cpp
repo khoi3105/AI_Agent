@@ -1,7 +1,8 @@
 #include "ollama_client.h"
 #include "../utils/base64_encoder.h"
-#include "../tools/tool.h"
+#include "../tools/tool_registry.h"
 #include <iostream>
+#include <memory>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 
@@ -71,45 +72,26 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
     }
 
     // Lấy Schema ( Không hardcode ) 
-    // nlohmann::json tools_schema = registry.get_all_schemas();
-
-    nlohmann::json tools_schema = nlohmann::json::array({
-        {
-            {"type", "function"},
-            {"function", {
-                {"name", "calculator"},
-                {"description", "Thực hiện phép tính số học giữa 2 số"},
-                {"parameters", {
-                    {"type", "object"},
-                    {"properties", {
-                        {"operand_1", {{"type", "number"}}},
-                        {"operator", {{"type", "string"}, {"enum", {"+", "-", "*", "/"}}}},
-                        {"operand_2", {{"type", "number"}}}
-                    }},
-                    {"required", {"operand_1", "operator", "operand_2"}}
-                }}
-            }}
-        }
-    });
+    ToolRegistry registry;
+    nlohmann::json tools_schema = registry.get_all_schemas();
 
     std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
 
-    === DANH SÁCH CÔNG CỤ CÓ SẴN (TOOLS) ===
-    - calculator: Thực hiện các phép tính số học (cộng, trừ, nhân, chia) trên các con số cụ thể.
-    {{TOOLS_SCHEMA_PLACEHOLDER}}
+    === DANH SÁCH CÔNG CỤ ĐƯỢC PHÉP SỬ DỤNG (JSON SCHEMA) ===
+    )" + tools_schema.dump(2) + R"(
 
     === QUY TẮC XỬ LÝ ĐẦU VÀO ===
     Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
 
-    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Khi và chỉ khi yêu cầu chứa phép tính toán số học cụ thể)
+    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Sử dụng khi và chỉ khi câu hỏi yêu cầu thực thi hoặc tính toán liên quan đến các công cụ trong danh sách trên)
     JSON Output:
     {
     "type": "tool_call",
-    "tool": "<tên_tool>",
-    "args": { <các_tham_số> }
+    "tool": "<tên_tool_chính_xác_trong_schema>",
+    "args": { <các_tham_số_đúng_định_dạng_properties_trong_schema> }
     }
 
-    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, văn bản)
+    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, hoặc khi KHÔNG CÓ công cụ nào phù hợp)
     JSON Output:
     {
     "type": "response",
@@ -117,53 +99,20 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
     }
 
     === RÀNG BUỘC LOẠI TRỪ NGHIÊM NGẶT (NEGATIVE CONSTRAINTS) ===
-    - KHÔNG gọi tool 'calculator' nếu câu hỏi KHÔNG chứa số liệu hoặc KHÔNG có yêu cầu tính toán rõ ràng.
-    - KHÔNG tự bịa ra các con số hoặc phép tính ngẫu nhiên (như 10 + 5) khi người dùng hỏi các câu hỏi chữ/kiến thức (như nhân vật, địa danh, trò chuyện).
-    - KHÔNG gán cả biểu thức toán học phức tạp vào một tham số đơn lẻ; hãy tách thành từng bước tính hoặc từng tham số số học cụ thể.
+    - KHÔNG tự ý gọi công cụ nếu câu hỏi KHÔNG chứa số liệu hoặc KHÔNG có yêu cầu xử lý rõ ràng liên quan đến công cụ đó.
+    - KHÔNG tự bịa ra các con số, tên công cụ hoặc phép tính ngẫu nhiên khi người dùng hỏi các câu hỏi kiến thức thông thường.
     - KHÔNG trả về văn bản tự do ngoài cấu trúc JSON quy định.
-
-    === CƠ CHẾ TRẢ LỜI KIẾN THỨC ===
-    - Đối với các câu hỏi về nhân vật, khái niệm, kiến thức chung (như nhân vật hoạt hình, lịch sử, khoa học...): Hãy sử dụng kiến thức có sẵn của bạn để trả lời ngắn gọn, chính xác trong ĐỊNH DẠNG 2.
-    - Chỉ trả lời "Hiện tại tôi chưa có đủ thông tin về vấn đề này" nếu đó là một thông tin riêng tư, mật hoặc thực sự nằm ngoài tri thức của bạn.)";
+    - Khi sử dụng ĐỊNH DẠNG 1, trường "args" phải là một JSON Object chứa các key-value đúng theo định dạng 'properties' khai báo trong Schema của công cụ đó.)";
 
     nlohmann::json payload = {
         {"model", _modelName},
         {"messages", nlohmann::json::array({
             {{"role", "system"}, {"content", system_prompt}},
-            
-            // Ví dụ 1: Câu hỏi chữ
-            {{"role", "user"}, {"content", "Thủ đô của Việt Nam là gì?"}},
-            {{"role", "assistant"}, {"content", "Thủ đô của Việt Nam là Hà Nội."}},
-
-            // Ví dụ 2: Ví dụ về Calculator
-            {{"role", "user"}, {"content", "Tính 15 cộng 35"}},
-            {
-                {"role", "assistant"},
-                {"content", nullptr},
-                {"tool_calls", nlohmann::json::array({
-                    {
-                        {"id", "call_example_1"},
-                        {"type", "function"},
-                        {"function", {
-                            {"name", "calculator"},
-                            {"arguments", "{\"operand_1\": 15, \"operator\": \"+\", \"operand_2\": 35}"}
-                        }}
-                    }
-                })}
-            },
-            // Phản hồi của tool
-            {
-                {"role", "tool"},
-                {"tool_call_id", "call_example_1"},
-                {"name", "calculator"},
-                {"content", "50"}
-            },
-
             // Câu hỏi thực tế của User
             user_msg
         })},
-        {"tools", tools_schema},
-        {"tool_choice", "auto"},
+        // {"tools", tools_schema},
+        // {"tool_choice", "auto"},
         {"temperature", 0.1},
         {"top_p", 1.0},
         {"max_tokens", 16384},

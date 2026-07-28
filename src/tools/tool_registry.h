@@ -35,21 +35,7 @@ public:
      */
     std::string executeTool(const std::string& name, const std::string& args);
 
-    nlohmann::json get_all_schemas() const {
-        auto schemas = nlohmann::json::array();
-        for (const auto& [name, tool] : tools) {
-            schemas.push_back(tool->get_schema());
-        }
-        return schemas;
-    }
-
-    nlohmann::json get_all_schemas() const {
-        auto schemas = nlohmann::json::array();
-        for (const auto& [name, tool] : tools) {
-            schemas.push_back(tool->get_schema());
-        }
-        return schemas;
-    }
+    nlohmann::json get_all_schemas() const;
 };
 
 #endif // TOOL_REGISTRY_H
