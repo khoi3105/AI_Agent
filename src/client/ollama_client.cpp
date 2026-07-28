@@ -14,16 +14,17 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* use
     return totalSize;
 }
 
-string OllamaClient::chat(const string& user_prompt) {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    CURL* curl = curl_easy_init();
+std::expected<std::string, std::string> OllamaClient::chat(const std::string& user_prompt, const std::vector<std::string>& image_paths) {
+    // 0. Khởi tạo libcurl
+    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
+        return std::unexpected("Lỗi khởi tạo libcurl global!");
+    }
 
+    CURL* curl = curl_easy_init();
     if (!curl) {
         curl_global_cleanup();
         return std::unexpected("Lỗi khởi tạo session curl easy!");
     }
-
-    
 
     nlohmann::json user_msg;
     if (image_paths.empty()) {
@@ -128,20 +129,47 @@ string OllamaClient::chat(const string& user_prompt) {
     nlohmann::json payload = {
         {"model", _modelName},
         {"messages", nlohmann::json::array({
+            {{"role", "system"}, {"content", system_prompt}},
+            
+            // Ví dụ 1: Câu hỏi chữ
+            {{"role", "user"}, {"content", "Thủ đô của Việt Nam là gì?"}},
+            {{"role", "assistant"}, {"content", "Thủ đô của Việt Nam là Hà Nội."}},
+
+            // Ví dụ 2: Ví dụ về Calculator
+            {{"role", "user"}, {"content", "Tính 15 cộng 35"}},
             {
-                {"role", "system"},
-                {"content", system_prompt
-                }
+                {"role", "assistant"},
+                {"content", nullptr},
+                {"tool_calls", nlohmann::json::array({
+                    {
+                        {"id", "call_example_1"},
+                        {"type", "function"},
+                        {"function", {
+                            {"name", "calculator"},
+                            {"arguments", "{\"operand_1\": 15, \"operator\": \"+\", \"operand_2\": 35}"}
+                        }}
+                    }
+                })}
             },
+            // Phản hồi của tool
             {
-                {"role", "user"},
-                {"content", user_prompt}
-            }
+                {"role", "tool"},
+                {"tool_call_id", "call_example_1"},
+                {"name", "calculator"},
+                {"content", "50"}
+            },
+
+            // Câu hỏi thực tế của User
+            user_msg
         })},
-        {"response_format", {{"type", "json_object"}}},
-        {"max_tokens", 128},
-        {"temperature", 0.00}
+        {"tools", tools_schema},
+        {"tool_choice", "auto"},
+        {"temperature", 0.1},
+        {"top_p", 1.0},
+        {"max_tokens", 16384},
+        {"stream", false}
     };
+    
     string json_str = payload.dump();
 
     // 2. Headers
@@ -160,23 +188,36 @@ string OllamaClient::chat(const string& user_prompt) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
 
-    // 4. Exec & Extract Content string
-    string content_str = "";
+    // 5. Thực thi Request
     CURLcode res = curl_easy_perform(curl);
-    if (res == CURLE_OK) {
-        try {
-            auto response_json = nlohmann::json::parse(response_string);
-            content_str = response_json["choices"][0]["message"]["content"];
-        } catch (const exception& e) {
-            cerr << "Loi parse API JSON response: " << e.what() << std::endl;
-        }
-    }
-
+    
+    // Đảm bảo luôn dọn dẹp tài nguyên curl sau khi request xong
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     curl_global_cleanup();
 
-    // cout << content_str << endl;
+    // Bắt lỗi kết nối HTTP / Curl
+    if (res != CURLE_OK) {
+        return std::unexpected(string("Lỗi curl request: ") + curl_easy_strerror(res));
+    }
 
-    return content_str; // Trả về duy nhất chuỗi text JSON do AI sinh ra
+    cout << response_string << endl;
+
+    // 6. Parse JSON Response và bắt lỗi định dạng
+    try {
+        auto response_json = nlohmann::json::parse(response_string);
+
+        // Kiểm tra xem trường dữ liệu mong muốn có tồn tại không
+        if (!response_json.contains("choices") || response_json["choices"].empty()) {
+            return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
+        }
+
+        std::string message_str = response_json["choices"][0]["message"];
+        
+        // Thành công: Trả về trực tiếp chuỗi kết quả
+        return message_str; 
+
+    } catch (const nlohmann::json::exception& e) {
+        return std::unexpected(string("Lỗi parse API JSON response: ") + e.what());
+    }
 }

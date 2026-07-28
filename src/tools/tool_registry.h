@@ -42,6 +42,14 @@ public:
         }
         return schemas;
     }
+
+    nlohmann::json get_all_schemas() const {
+        auto schemas = nlohmann::json::array();
+        for (const auto& [name, tool] : tools) {
+            schemas.push_back(tool->get_schema());
+        }
+        return schemas;
+    }
 };
 
 #endif // TOOL_REGISTRY_H
