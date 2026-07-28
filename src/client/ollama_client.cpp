@@ -26,8 +26,6 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
         return std::unexpected("Lỗi khởi tạo session curl easy!");
     }
 
-    
-
     nlohmann::json user_msg;
     if (image_paths.empty()) {
         // Nếu không có ảnh, content chỉ cần là string đơn thuần

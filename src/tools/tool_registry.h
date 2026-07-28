@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <iostream>
+#include <memory>
 
 /**
  * @brief Lớp quản lý Tool đơn giản cho giai đoạn POC.
@@ -14,43 +15,32 @@
 class ToolRegistry {
 private:
     // Lưu trữ danh sách con trỏ Tool (Hardcode ở POC)
-    std::unordered_map<std::string, Tool*> tools;
-
+    std::unordered_map<std::string, std::shared_ptr<Tool>> _tools;
 public:
     // Constructor POC: Tự động khởi tạo cứng (Hardcode) các Tool hiện có
-    ToolRegistry() {
-        // Hardcode tạo sẵn CalculatorTool
-        CalculatorTool* calc = new CalculatorTool();
-        tools[calc->getName()] = calc;
-    }
-
+    ToolRegistry();
     // Destructor: Giải phóng bộ nhớ các tool đã new trong constructor
-    ~ToolRegistry() {
-        for (auto& pair : tools) {
-            delete pair.second;
-        }
-        tools.clear();
-    }
+    ~ToolRegistry();
+    
+    std::expected<void, std::string> registerTool(std::shared_ptr<Tool> tool);
+
+    std::expected<void, std::string> unregisterTool(const std::string& name);
 
     /**
      * @brief Lấy con trỏ Tool theo tên ("calculator")
      */
-    Tool* getTool(const std::string& name) {
-        if (tools.find(name) != tools.end()) {
-            return tools[name];
-        }
-        return nullptr;
-    }
-
+    Tool* getTool(const std::string& name);
     /**
      * @brief Hàm tiện ích chạy thẳng Tool cho POC
      */
-    std::string executeTool(const std::string& name, const std::string& args) {
-        Tool* tool = getTool(name);
-        if (tool != nullptr) {
-            return tool->execute(args);
+    std::string executeTool(const std::string& name, const std::string& args);
+
+    nlohmann::json get_all_schemas() const {
+        auto schemas = nlohmann::json::array();
+        for (const auto& [name, tool] : tools) {
+            schemas.push_back(tool->get_schema());
         }
-        return "Lỗi: Không tìm thấy tool " + name;
+        return schemas;
     }
 
     nlohmann::json get_all_schemas() const {
