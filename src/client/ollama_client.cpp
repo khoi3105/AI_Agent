@@ -1,31 +1,14 @@
 #include "ollama_client.h"
 #include "../utils/base64_encoder.h"
 #include "../tools/tool_registry.h"
+#include "../utils/http_client.h"
 #include <iostream>
 #include <memory>
-#include <curl/curl.h>
 #include <nlohmann/json.hpp>
 
 using namespace std;
 
-static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-    size_t totalSize = size * nmemb;
-    string* response = static_cast<string*>(userp);
-    response->append(static_cast<char*>(contents), totalSize);
-    return totalSize;
-}
-
 std::expected<std::string, std::string> OllamaClient::chat(const std::string& user_prompt, const std::vector<std::string>& image_paths) {
-    // 0. Khởi tạo libcurl
-    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
-        return std::unexpected("Lỗi khởi tạo libcurl global!");
-    }
-
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        curl_global_cleanup();
-        return std::unexpected("Lỗi khởi tạo session curl easy!");
-    }
 
     nlohmann::json user_msg;
     if (image_paths.empty()) {
@@ -58,9 +41,6 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
                     }}
                 });
             } else {
-                // Đừng quên dọn dẹp curl nếu return sớm giữa chừng
-                curl_easy_cleanup(curl);
-                curl_global_cleanup();
                 return std::unexpected(b64_result.error());
             }
         }
@@ -119,38 +99,20 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
         {"stream", false}
     };
     
-    string json_str = payload.dump();
-
-    // 2. Headers
-    struct curl_slist* headers = nullptr;
-    string auth_header = "Authorization: Bearer " + _APIKey;
-    headers = curl_slist_append(headers, auth_header.c_str());
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers, "Accept: application/json");
-
-    // 3. Libcurl Setup
-    string response_string;
-    curl_easy_setopt(curl, CURLOPT_URL, _baseURL.c_str());
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
-
-    // 5. Thực thi Request
-    CURLcode res = curl_easy_perform(curl);
-    
-    // Đảm bảo luôn dọn dẹp tài nguyên curl sau khi request xong
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
-
-    // Bắt lỗi kết nối HTTP / Curl
-    if (res != CURLE_OK) {
-        return std::unexpected(string("Lỗi curl request: ") + curl_easy_strerror(res));
+    // 1. Chuẩn bị custom headers chứa API Key
+    vector<string> headers;
+    if (!_APIKey.empty()) {
+        headers.push_back("Authorization: Bearer " + _APIKey);
     }
 
-    cout << response_string << endl;
+    // 2. Gửi request qua HttpClient (1 DÒNG DUY NHẤT!)
+    auto http_res = agent::utils::HttpClient::postJson(_baseURL, payload.dump(), headers);
+
+    if (!http_res.has_value()) {
+        return std::unexpected(http_res.error());
+    }
+
+    std::string response_string = http_res.value();
 
     // 6. Parse JSON Response và bắt lỗi định dạng
     try {
