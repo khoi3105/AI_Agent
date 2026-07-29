@@ -2,7 +2,6 @@
 #include <sstream>
 #include <expected>
 #include <cmath>
-#include "exprtk.hpp"
 
 std::string CalculatorTool::getName() const {
     return "calculator";
