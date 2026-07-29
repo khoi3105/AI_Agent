@@ -161,7 +161,7 @@ std::expected<std::string, std::string> OllamaClient::chat(const std::string& us
             return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
         }
 
-        std::string message_str = response_json["choices"][0]["message"];
+        std::string message_str = response_json["choices"][0]["message"]["content"];
         
         // Thành công: Trả về trực tiếp chuỗi kết quả
         return message_str; 

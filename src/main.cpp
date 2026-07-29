@@ -29,6 +29,7 @@ int main() {
     // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
     // std::string user_task = "Doraemon là ai vậy?";
     std::string user_task;
+    std::cout << "Nhap prompt cua ban: ";
     getline(std::cin, user_task);
     // std::string user_task = "Thực hiện phép tính 20 + 10 ";
 
@@ -47,13 +48,13 @@ int main() {
     }
 
     // Lay operator, operand / content
-    ToolCallRequest req;
-    req = ToolCallParser::parse(*llm_response);
-    std::cout << req.args;
+    // ToolCallRequest req;
+    // req = ToolCallParser::parse(*llm_response);
+    // std::cout << req.args;
 
-    ToolRegistry registry;
-    std::string result = registry.executeTool(req.tool_name, req.args);
-    std::cout << result;
+    // ToolRegistry registry;
+    // std::string result = registry.executeTool(req.tool_name, req.args);
+    // std::cout << result;
 
     // // 6. Bóc tách JSON response từ AI trực tiếp tại main (Thử nghiệm cho POC)
     // if (llm_response.empty()) {
