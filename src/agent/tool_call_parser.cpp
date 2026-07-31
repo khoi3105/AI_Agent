@@ -9,21 +9,15 @@ ToolCallRequest ToolCallParser::parse(const std::string& llm_response) {
 
     try{
         auto j = nlohmann::json::parse(llm_response);
-        auto& msg = j["choices"][0]["message"];
-
-        if (msg.contains("tool_calls") && !msg["tool_calls"].is_null()) {
-            auto& func = msg["tool_calls"][0]["function"];
-            req.tool_name = func["name"].get<std::string>();
-            
-            // Parse chuỗi stringify "arguments" thành JSON object
-            std::string args_str = func["arguments"].get<std::string>();
-            req.args = nlohmann::json::parse(args_str);
-            
+        
+        if (j.contains("type") && j["type"] == "tool_call") {
+            req.tool_name = j["tool"].get<std::string>();
+            req.args = j.value("args",nlohmann::json::object()); 
             req.is_valid = true;
         }
-        else if (msg.contains("content") && !msg["content"].is_null()) {
+        else if (j.contains("type") && j["type"] == "response") {
             req.tool_name = "null";
-            req.args = msg["content"].get<std::string>(); // Lưu tạm response văn bản
+            req.args = j; // Lưu tạm response văn bản
             req.is_valid = false; // Không phải tool call
         }
     }

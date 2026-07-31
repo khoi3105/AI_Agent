@@ -9,15 +9,15 @@
 
 struct ToolCallRequest {
     std::string tool_name;
-    std::string args;
+    nlohmann::json args;
     bool is_valid = false;
 };
 
 class ToolCallParser {
 private:
-    ToolRegistry _regis;
 public:
     static ToolCallRequest parse(const std::string& llm_response);
+    ~ToolCallParser() = default;
 };
 
 #endif

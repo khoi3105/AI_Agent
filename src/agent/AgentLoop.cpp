@@ -1,0 +1,100 @@
+#include <nlohmann/json.hpp>
+#include <string>
+#include <memory>
+#include <format>
+
+#include "AgentLoop.h"
+#include "tool_call_parser.h"
+#include "../tools/tool_registry.h"
+
+std::string AgentLoop::run(const std::string& user_task, const std::shared_ptr<LLMClient>& client){ 
+    ToolRegistry registry;
+    nlohmann::json tools_schema = registry.get_all_schemas();
+
+    std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
+
+    === DANH SÁCH CÔNG CỤ ĐƯỢC PHÉP SỬ DỤNG (JSON SCHEMA) ===
+    )" + tools_schema.dump(2) + R"(
+
+    === QUY TẮC XỬ LÝ ĐẦU VÀO ===
+    Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
+
+    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Sử dụng khi và chỉ khi câu hỏi yêu cầu thực thi hoặc tính toán liên quan đến các công cụ trong danh sách trên)
+    {
+    "type": "tool_call",
+    "tool": "<tên_tool_chính_xác_trong_schema>",
+    "args": { <các_tham_số_đúng_định_dạng_properties_trong_schema> }
+    }
+
+    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, hoặc khi KHÔNG CÓ công cụ nào phù hợp)
+    {
+    "type": "response",
+    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_của_bạn>"
+    }
+
+    === RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
+    - KHÔNG TỰ TÍNH TOÁN HAY GIẢI BÀI TOÁN. Khi phát hiện phép tính, PHẢI tạo "tool_call" ngay lập tức để Tool xử lý.
+    - KHÔNG viết lời mở đầu, KHÔNG giải thích các bước tính toán (ví dụ: "Tôi sẽ dùng calculator...", "20 + 160 = 180...").
+    - KHÔNG bọc JSON trong Markdown ```json ... ```. Chỉ trả về JSON thuần túy bắt đầu bằng '{' và kết thúc bằng '}'.
+    )";
+
+    // Lưu lại lịch sử 
+    _conversation_history.push_back({{"role", "system"}, {"content", system_prompt }});
+    _conversation_history.push_back({{"role", "user"}, {"content", user_task}});
+
+    int step = 0;
+    ToolCallRequest request;
+    while ( step < AgentLoop::MAXSTEP ) {  
+        step++;
+        
+        std::expected<std::string,std::string> llm_response = client->chat(_conversation_history);
+        if (llm_response.has_value()) {
+            std::cout << std::format("--> AI Raw Response (String):\n",*llm_response);
+        } else {
+            return std::format("[ERROR]: Khong nhan phan hoi tu LLM - {} !\n",llm_response.error());
+        }
+
+        request = ToolCallParser::parse(*llm_response);
+        _conversation_history.push_back({{"role","assistant"},{"content",*llm_response}});
+
+
+        if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
+
+            std::cout << "[Act]: Gọi công cụ '" << request.tool_name << "'...\n";
+
+            std::string tool_result = registry.executeTool(request.tool_name,request.args["expression"].get<std::string>());
+            std::cout << "[Observe]: Kết quả Tool -> " << tool_result << std::endl;
+
+            // Đưa kết quả Tool (Observation) ngược lại hội thoại cho LLM đọc ở bước tiếp theo
+            std::string observation_msg = std::format("Tool Output (Công cụ {} trả về): {}", request.tool_name, tool_result);
+            _conversation_history.push_back({{"role", "user"}, {"content", observation_msg}});
+
+            continue; 
+        }
+
+        break;
+    }
+
+    if (step >= AgentLoop::MAXSTEP) {
+        return "[ERROR]: Da dat so buoc toi da!";
+    }
+
+    try {
+        // Trường hợp 1: args là JSON Object chứa key "text"
+        if (request.args.is_object() && request.args.contains("text")) {
+            return std::format("[4] Tra loi: {}\n", request.args["text"].get<std::string>());
+        } 
+        // Trường hợp 2: args đã được parser đưa về dạng string
+        else if (request.args.is_string()) {
+            return std::format("[4] Tra loi: {}\n", request.args.get<std::string>());
+        }
+    } 
+    catch (const nlohmann::json::exception& e) {
+        std::cerr << "[JSON Exception - Output Fallback]: " << e.what() << '\n';
+    }
+
+    // Fallback: Lấy chuỗi thô cuối cùng của AI trong lịch sử nếu parse lỗi
+    std::string raw_fallback = _conversation_history.back()["content"].get<std::string>();
+    return std::format("[4] Tra loi: {}\n", raw_fallback);
+
+}
