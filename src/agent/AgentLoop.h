@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 #include "../client/llm_client.h"
 #include <string>
+#include <vector>
 
 class AgentLoop{
 private:
@@ -11,7 +12,7 @@ private:
 public:
     static constexpr int MAXSTEP = 5;
     AgentLoop(): _conversation_history(nlohmann::json::array()){}
-    std::string run(const std::string& user_task, const std::shared_ptr<LLMClient>& client);
+    std::string run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths = {});
 };
 
 #endif

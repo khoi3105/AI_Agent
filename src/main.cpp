@@ -30,19 +30,19 @@ int main() {
 
     // 4. Chuẩn bị câu hỏi (Task) từ người dùng
     // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
-    // std::string user_task = "Doraemon là ai vậy?";
-    std::string user_task = "Thực hiện phép tính 20 + 10 ";
+    std::string user_task = "Doraemon là ai vậy?";
+    // std::string user_task = "tính biểu thức trong bức ảnh ";
     // std::string user_task;
     // std::cout << "Nhap prompt cua ban: ";
     // getline(std::cin, user_task);
 
     std::cout << "[3] User Task: \"" << user_task << "\"" << std::endl << std::endl;
     std::vector<std::string> images_path = {
-        // "build/a.jpg",
+        // "build/Untitled.png",
     };
 
     AgentLoop agent;
-    std::cout << agent.run(user_task,client);
+    std::cout << agent.run(user_task,client,images_path);
 
     // 5. Gửi câu hỏi sang LLM Client
     // std::cout << "[4] Dang gui Request sang AI API..." << std::endl;

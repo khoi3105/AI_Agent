@@ -7,51 +7,57 @@
 
 using namespace std;
 
-std::expected<std::string, std::string> OllamaClient::chat(const nlohmann::json& message, const std::vector<std::string>& image_paths) {
+std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& message, const std::vector<std::string>& image_paths) {
 
-    nlohmann::json user_msg;
-    // if (image_paths.empty()) {
+    // Nếu có danh sách ảnh, tiến hành chèn ảnh vào tin nhắn của user
+    // std::cout << "[DEBUG] image_paths size = " << image_paths.size() << std::endl;
+    if (!image_paths.empty()) {
+        // 1. Tìm phần tử tin nhắn của User trong mảng message (thường là phần tử có "role": "user")
+        nlohmann::json* user_msg_ptr = nullptr;
+        for (auto& msg : message) {
+            if (msg.contains("role") && msg["role"] == "user") {
+                user_msg_ptr = &msg;
+                break;
+            }
+        }
 
-        //TODO: NEU CO ANH CHI APPEND VAO message, khong tao moi
+        // Nếu tìm thấy tin nhắn user, thực hiện biến đổi content sang dạng multimodal array
+        if (user_msg_ptr != nullptr) {
+            std::string original_text = "";
+            if (user_msg_ptr->contains("content") && (*user_msg_ptr)["content"].is_string()) {
+                original_text = (*user_msg_ptr)["content"].get<std::string>();
+            }
 
-        // Nếu không có ảnh, content chỉ cần là string đơn thuần
-    //     user_msg = {
-    //         {"role", "user"},
-    //         {"content", user_prompt}
-    //     };
-    // } else {
-    //     // Nếu có ảnh, content sẽ là mảng chứa cả text và các image_url
-    //     nlohmann::json content_array = nlohmann::json::array();
-        
-    //     // 1. Thêm prompt text vào mảng
-    //     content_array.push_back({
-    //         {"type", "text"},
-    //         {"text", user_prompt}
-    //     });
+            // Mảng content chứa text + images theo chuẩn OpenAI / NIM API
+            nlohmann::json content_array = nlohmann::json::array();
 
-    //     // 2. Thêm từng ảnh base64 vào mảng theo chuẩn OpenAI / NIM
-    //     for (const auto& img_path : image_paths) {
-    //         auto b64_result = Base64Encoder::encodeFile(img_path);
-    //         if (b64_result.has_value()) {
-    //             // Giả định định dạng ảnh (jpeg/png). Bạn có thể đổi sang png nếu dùng png.
-    //             std::string base64_url = "data:image/jpeg;base64," + b64_result.value();
-                
-    //             content_array.push_back({
-    //                 {"type", "image_url"},
-    //                 {"image_url", {
-    //                     {"url", base64_url}
-    //                 }}
-    //             });
-    //         } else {
-    //             return std::unexpected(b64_result.error());
-    //         }
-    //     }
+            // Push prompt text hiện tại
+            content_array.push_back({
+                {"type", "text"},
+                {"text", original_text}
+            });
 
-    //     user_msg = {
-    //         {"role", "user"},
-    //         {"content", content_array}
-    //     };
-    // }
+            // Push từng ảnh đã encode Base64
+            for (const auto& img_path : image_paths) {
+                auto b64_result = Base64Encoder::encodeFile(img_path);
+                if (b64_result.has_value()) {
+                    std::string base64_url = "data:image/jpeg;base64," + b64_result.value();
+                    content_array.push_back({
+                        {"type", "image_url"},
+                        {"image_url", {
+                            {"url", base64_url}
+                        }}
+                    });
+                } else {
+                    // Trả về lỗi nếu đọc/mã hóa file ảnh thất bại
+                    return std::unexpected(b64_result.error());
+                }
+            }
+
+            // Gán lại content đã được cập nhật thành mảng cho tin nhắn user
+            (*user_msg_ptr)["content"] = content_array;
+        }
+    }
 
     nlohmann::json payload = {
         {"model", _modelName},
@@ -76,6 +82,7 @@ std::expected<std::string, std::string> OllamaClient::chat(const nlohmann::json&
     }
 
     std::string response_string = http_res.value();
+    // cout << response_string << endl;
 
     // 6. Parse JSON Response và bắt lỗi định dạng
     try {

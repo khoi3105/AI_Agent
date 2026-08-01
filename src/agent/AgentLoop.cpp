@@ -7,7 +7,7 @@
 #include "tool_call_parser.h"
 #include "../tools/tool_registry.h"
 
-std::string AgentLoop::run(const std::string& user_task, const std::shared_ptr<LLMClient>& client){ 
+std::string AgentLoop::run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths){ 
     ToolRegistry registry;
     nlohmann::json tools_schema = registry.get_all_schemas();
 
@@ -47,9 +47,12 @@ std::string AgentLoop::run(const std::string& user_task, const std::shared_ptr<L
     while ( step < AgentLoop::MAXSTEP ) {  
         step++;
         
-        std::expected<std::string,std::string> llm_response = client->chat(_conversation_history);
+        std::expected<std::string,std::string> llm_response = client->chat(_conversation_history, image_paths);
+        // std::cout << std::format("conversation history: {}\n", _conversation_history.dump());
         if (llm_response.has_value()) {
+            // std::cout << "==========================================================\n";
             std::cout << std::format("--> AI Raw Response (String):\n",*llm_response);
+            // std::cout << "==========================================================\n";
         } else {
             return std::format("[ERROR]: Khong nhan phan hoi tu LLM - {} !\n",llm_response.error());
         }

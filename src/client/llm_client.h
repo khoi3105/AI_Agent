@@ -8,7 +8,7 @@
 
 class LLMClient {
 public:
-    virtual std::expected<std::string, std::string> chat(const nlohmann::json& message, const std::vector<std::string>& image_paths = {}) = 0;
+    virtual std::expected<std::string, std::string> chat(nlohmann::json& message, const std::vector<std::string>& image_paths = {}) = 0;
     virtual ~LLMClient() = default;
 };
 
