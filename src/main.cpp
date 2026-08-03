@@ -21,8 +21,6 @@ int main() {
     // 2. Khởi tạo LLM Client (Sử dụng con trỏ Lớp cơ sở - Abstraction)
     std::cout << "[1] Dang khoi tao LLM Client..." << std::endl;
     std::shared_ptr<LLMClient> client = std::make_shared<OllamaClient>(model, base_url, api_key);
-    // std::unique_ptr<LLMClient> client = std::make_unique<OllamaClient>(model, base_url, api_key);
-
 
     // 3. Khởi tạo ToolRegistry (Phiên bản POC đã hardcode CalculatorTool)
     std::cout << "[2] Dang khoi tao ToolRegistry..." << std::endl;
@@ -30,7 +28,8 @@ int main() {
 
     // 4. Chuẩn bị câu hỏi (Task) từ người dùng
     // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
-    std::string user_task = "Doraemon là ai vậy?";
+    std::string user_task = " Thực hiện phép tính 20 + 10. Và cho tôi hỏi thời tiết Hồ Chí Minh hôm nay như thế nào?";
+    // std::string user_task = "Doraemon là ai vậy? ";
     // std::string user_task = "tính biểu thức trong bức ảnh ";
     // std::string user_task;
     // std::cout << "Nhap prompt cua ban: ";
@@ -38,64 +37,11 @@ int main() {
 
     std::cout << "[3] User Task: \"" << user_task << "\"" << std::endl << std::endl;
     std::vector<std::string> images_path = {
-        // "build/Untitled.png",
+        "build/Untitled.png",
     };
 
     AgentLoop agent;
-    std::cout << agent.run(user_task,client,images_path);
-
-    // 5. Gửi câu hỏi sang LLM Client
-    // std::cout << "[4] Dang gui Request sang AI API..." << std::endl;
-    // auto llm_response = client->chat(user_task, images_path);
-
-    // if (llm_response.has_value()) {
-    //     std::cout << "--> AI Raw Response (String):\n" << *llm_response << std::endl;
-    // } else {
-    //     std::cout << llm_response.error() << std::endl;
-    // }
-
-    // Lay operator, operand / content
-    // ToolCallRequest req;
-    // req = ToolCallParser::parse(*llm_response);
-    // std::cout << req.args;
-
-    // ToolRegistry registry;
-    // std::string result = registry.executeTool(req.tool_name, req.args);
-    // std::cout << result;
-
-    // // 6. Bóc tách JSON response từ AI trực tiếp tại main (Thử nghiệm cho POC)
-    // if (llm_response.empty()) {
-    //     std::cerr << "[X] Loi: AI khong tra ve du lieu!" << std::endl;
-    //     return 1;
-    // }
-
-    // try {
-    //     std::cout << "[5] Dang boc tach (parse) JSON tu AI response..." << std::endl;
-    //     auto j = nlohmann::json::parse(llm_response);
-
-    //     // Lấy toán tử và 2 toán hạng từ JSON AI trả về
-    //     std::string op = j.at("operator").get<std::string>();
-    //     double num1 = j.at("operand_1").get<double>();
-    //     double num2 = j.at("operand_2").get<double>();
-
-    //     // Định dạng lại tham số để gửi cho CalculatorTool (ví dụ: "15 * 17")
-    //     std::string tool_args = std::to_string(num1) + " " + op + " " + std::to_string(num2);
-
-    //     std::cout << "    + Toan tu: " << op << std::endl;
-    //     std::cout << "    + Tham so trich xuat: " << tool_args << std::endl << std::endl;
-
-    //     // 7. Thực thi Tool thông qua ToolRegistry
-    //     std::cout << "[6] Kich hoat CalculatorTool..." << std::endl;
-    //     std::string tool_result = "helloWorld";
-
-    //     std::cout << "\n==========================================" << std::endl;
-    //     std::cout << " ==> KET QUA CUOI CUNG: " << tool_result << std::endl;
-    //     std::cout << "==========================================" << std::endl;
-
-    // } catch (const std::exception& e) {
-    //     std::cerr << "[X] Loi parse JSON hoac khong dung dinh dang: " << e.what() << std::endl;
-    //     std::cout << "Raw response tu AI: " << llm_response << std::endl;
-    // }
+    std::cout << *agent.run(user_task,client,images_path);
 
     return 0;
 }

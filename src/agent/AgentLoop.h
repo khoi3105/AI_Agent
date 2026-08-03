@@ -8,11 +8,11 @@
 
 class AgentLoop{
 private:
-    nlohmann::json _conversation_history;
+    nlohmann::json _conversationHistory;
 public:
     static constexpr int MAXSTEP = 5;
-    AgentLoop(): _conversation_history(nlohmann::json::array()){}
-    std::string run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths = {});
+    AgentLoop(): _conversationHistory(nlohmann::json::array()){}
+    std::expected<std::string, std::string> run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths = {});
 };
 
 #endif

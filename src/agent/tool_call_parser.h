@@ -17,6 +17,7 @@ class ToolCallParser {
 private:
 public:
     static ToolCallRequest parse(const std::string& llm_response);
+    static std::string extract_json(const std::string& text);
     ~ToolCallParser() = default;
 };
 
