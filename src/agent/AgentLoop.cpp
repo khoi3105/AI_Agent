@@ -12,6 +12,7 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
     nlohmann::json tools_schema = registry.get_all_schemas();
 
     _conversationHistory.clear();
+    _loopdetector.reset();
 
     std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
 
@@ -26,7 +27,7 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
     Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
 
     1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Sử dụng khi và chỉ khi câu hỏi yêu cầu thực thi hoặc tính toán liên quan đến các công cụ trong danh sách trên)
-    {
+    {   
     "type": "tool_call",
     "tool": "<tên_tool_chính_xác_trong_schema>",
     "args": { <các_tham_số_đúng_định_dạng_properties_trong_schema> }
@@ -64,10 +65,23 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
 
         if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
 
+            LoopCheckResult _detectLoop = _loopdetector.checkLoop(request.tool_name,request.args);
+
+            if ( _detectLoop.status == LoopStatus::CRITICAL ) {
+                return std::unexpected(_detectLoop.message);
+            }
+            else if ( _detectLoop.status == LoopStatus::WARNING ) {
+                _conversationHistory.push_back({
+                    {"role","user"},
+                    {"content","CANH BAO TU HE THONG: Ban dang goi cung 1 Tool voi cung tham so nhieu lan. Vui long chon cach khac hoac dua ra cau tra loi cuoi cung!"}
+                });
+                continue;
+            }
+
             std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
 
             std::string tool_result = registry.executeTool(request.tool_name,request.args["expression"].get<std::string>());
-            std::cout << "[Observe]: Ket qua Tool -> " << tool_result << std::endl;
+            std::cout << "[Observe]: Ket qua Tool: " << tool_result << std::endl;
 
             // Đưa kết quả Tool (Observation) ngược lại hội thoại cho LLM đọc ở bước tiếp theo
             std::string observation_msg = std::format("Ket qua tu cong cu '{}': {}", request.tool_name, tool_result);
