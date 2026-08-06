@@ -1,27 +1,41 @@
 #include "file_reader_registry.h"
 
-#include "../reader/txt_reader.h"
-#include "../reader/csv_reader.h"
-#include "../reader/xml_reader.h"
+#include "../reader/textfile_reader.h"
 #include "../reader/pdf_reader.h"
 
-FileReaderRegistry::FileReaderRegistry() {
-    //TXT
-    _registry[".txt"] = []()
+FileReaderRegistry::FileReaderRegistry()
+{
+    auto textReaderFactory = []()
     {
-        return std::make_unique<TxtReader>();
+        return std::make_unique<TextFileReader>();
     };
-    //CSV
-    _registry[".csv"] = []()
-    {
-        return std::make_unique<CsvReader>();
-    };
-    //XML
-    _registry[".xml"] = []()
-    {
-        return std::make_unique<XmlReader>();
-    };
-    //PDF
+
+    // Text files
+    _registry[".txt"]  = textReaderFactory;
+    _registry[".csv"]  = textReaderFactory;
+    _registry[".xml"]  = textReaderFactory;
+    _registry[".json"] = textReaderFactory;
+    _registry[".md"]   = textReaderFactory;
+    _registry[".log"]  = textReaderFactory;
+    _registry[".ini"]  = textReaderFactory;
+    _registry[".yaml"] = textReaderFactory;
+    _registry[".yml"]  = textReaderFactory;
+    _registry[".cpp"]  = textReaderFactory;
+    _registry[".hpp"]  = textReaderFactory;
+    _registry[".h"]    = textReaderFactory;
+    _registry[".c"]    = textReaderFactory;
+    _registry[".cc"]   = textReaderFactory;
+    _registry[".py"]   = textReaderFactory;
+    _registry[".java"] = textReaderFactory;
+    _registry[".js"]   = textReaderFactory;
+    _registry[".ts"]   = textReaderFactory;
+    _registry[".html"] = textReaderFactory;
+    _registry[".css"]  = textReaderFactory;
+    _registry[".sql"]  = textReaderFactory;
+    _registry[".sh"]   = textReaderFactory;
+    _registry[".bat"]  = textReaderFactory;
+
+    // PDF
     _registry[".pdf"] = []()
     {
         return std::make_unique<PdfReader>();

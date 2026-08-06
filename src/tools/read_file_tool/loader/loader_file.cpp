@@ -5,6 +5,6 @@ FileLoader::load(const std::filesystem::path& path)
 {
     auto reader = _registry.create(path.extension().string());
     if (!reader)
-        return std::unexpected("Unsupported file type.");
+        return std::unexpected("Không hỗ trợ đọc phần mở rộng này.");
     return reader->read(path);
 }

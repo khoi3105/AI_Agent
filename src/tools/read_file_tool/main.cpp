@@ -7,11 +7,8 @@ int main()
     std::string path;
     std::cout << "Nhap duong dan file: ";
     std::getline(std::cin, path);
-
     std::string result = tool.execute(path);
-
     std::cout << "\n===== NOI DUNG FILE =====\n";
     std::cout << result << '\n';
-
     return 0;
 }

@@ -5,12 +5,12 @@ std::string ReadFileTool::getName() const {
 }
 
 std::string ReadFileTool::getDescription() const {
-    return "Read text from txt, csv, xml and pdf files.";
+    return "Read text from txt, csv, xml, md, json, log, ini, yaml, yml, cpp, h, py, c, cc, java, js, html, css, sql, sh, bat and pdf files.";
 }
 std::string ReadFileTool::execute(const std::string& args) {
-    // auto j = nlohmann::json::parse(args);
-    // auto result = _loader.load(j["path"].get<std::string>());
-    auto result = _loader.load(args);
+    auto j = nlohmann::json::parse(args);
+    auto result = _loader.load(j["path"].get<std::string>());
+    // auto result = _loader.load(args);
     if (!result)
         return result.error();
 

@@ -2,7 +2,8 @@
 
 #include "../calculator_tool/calculator_tool.h"
 #include "../read_file_tool/read_file_tool.h"
-
+#include "../write_file_tool/write_file_tool.h"
+#include "../exec_tool/exec_tool.h"
 #include <stdexcept>
 
 void ToolRegistry::registerBuiltInTools() {
@@ -13,13 +14,27 @@ void ToolRegistry::registerBuiltInTools() {
         {
             return std::make_unique<CalculatorTool>();
         });
-
+    //ReadFile
     registerTool(
         "read_file",
         []()
         {
             return std::make_unique<ReadFileTool>();
         }); 
+    //WriteFile
+    registerTool(
+        "write_file",
+        []()
+        {
+            return std::make_unique<WriteFileTool>();
+        });
+    //Exec
+    registerTool(
+        "exec",
+        []()
+        {
+            return std::make_unique<ExecTool>();
+        });
 }
 
 ToolRegistry::ToolRegistry(){
