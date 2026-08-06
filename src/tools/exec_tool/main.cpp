@@ -8,6 +8,5 @@ int main(){
         "command":"ls -la"
     }
     )";
-
     std::cout << tool.execute(args);
 }
