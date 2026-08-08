@@ -4,6 +4,10 @@
 #include "../read_file_tool/read_file_tool.h"
 #include "../write_file_tool/write_file_tool.h"
 #include "../exec_tool/exec_tool.h"
+#include "../weather_tool/weather_tool.h"
+#include "../memory_save_tool/memory_save_tool.h"
+#include "../memory_search_tool/memory_search_tool.h"
+
 #include <stdexcept>
 
 void ToolRegistry::registerBuiltInTools() {
@@ -34,6 +38,27 @@ void ToolRegistry::registerBuiltInTools() {
         []()
         {
             return std::make_unique<ExecTool>();
+        });
+    //Weather
+    registerTool(
+        "weather",
+        []()
+        {
+            return std::make_unique<WeatherTool>();
+        });
+    //Memory_save
+    registerTool(
+        "memory_save",
+        []()
+        {
+            return std::make_unique<MemorySaveTool>();
+        });
+    //Memory_search
+    registerTool(
+        "memory_search",
+        []()
+        {
+            return std::make_unique<MemorySearchTool>();
         });
 }
 
