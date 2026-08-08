@@ -3,8 +3,6 @@
 #include <memory>
 #include <vector>
 #include <cstdlib> //std::env
-// #include "tools/tool_registry.h"
-// #include "agent/tool_call_parser.h"
 #include <nlohmann/json.hpp>
 
 // Include các file header trong dự án
