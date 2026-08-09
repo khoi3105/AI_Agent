@@ -1,12 +1,13 @@
 #include "tool_registry.h"
 
-#include "../calculator_tool/calculator_tool.h"
-#include "../read_file_tool/read_file_tool.h"
-#include "../write_file_tool/write_file_tool.h"
-#include "../exec_tool/exec_tool.h"
-#include "../weather_tool/weather_tool.h"
-#include "../memory_save_tool/memory_save_tool.h"
-#include "../memory_search_tool/memory_search_tool.h"
+#include "calculator_tool/calculator_tool.h"
+#include "read_file_tool/read_file_tool.h"
+#include "write_file_tool/write_file_tool.h"
+#include "exec_tool/exec_tool.h"
+#include "weather_tool/weather_tool.h"
+#include "memory_save_tool/memory_save_tool.h"
+#include "memory_search_tool/memory_search_tool.h"
+#include "web_search_tool/web_search_tool.h"
 
 #include <stdexcept>
 
@@ -59,6 +60,12 @@ void ToolRegistry::registerBuiltInTools() {
         []()
         {
             return std::make_unique<MemorySearchTool>();
+        });
+    registerTool(
+        "web_search",
+        []()
+        {
+            return std::make_unique<WebSearchTool>();
         });
 }
 
