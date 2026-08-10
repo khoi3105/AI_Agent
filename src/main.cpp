@@ -3,8 +3,6 @@
 #include <memory>
 #include <vector>
 #include <cstdlib> //std::env
-// #include "tools/tool_registry.h"
-// #include "agent/tool_call_parser.h"
 #include <nlohmann/json.hpp>
 
 // Include các file header trong dự án
@@ -28,8 +26,8 @@ int main() {
 
     // 4. Chuẩn bị câu hỏi (Task) từ người dùng
     // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
-    // std::string user_task = " Thực hiện phép tính 20 + 10. Và cho tôi hỏi thời tiết Hồ Chí Minh hôm nay như thế nào?";
-    std::string user_task = "Hãy dùng công cụ calculator tính 15 * 87. Sau khi tính xong, hãy gọi lại calculator tính lại đúng phép tính 15 * 87 thêm 3 lần nữa để chắc chắn kết quả không bị sai";
+    std::string user_task = " Thực hiện phép tính 20 + 10. Và cho tôi hỏi thời tiết Hồ Chí Minh hôm nay như thế nào?";
+    // std::string user_task = "Hãy dùng công cụ calculator tính 15 * 87. Sau khi tính xong, hãy gọi lại calculator tính lại đúng phép tính 15 * 87 thêm 3 lần nữa để chắc chắn kết quả không bị sai";
     // std::string user_task = "Doraemon là ai vậy? ";
     // std::string user_task = "tính biểu thức trong bức ảnh ";
     // std::string user_task;
@@ -38,11 +36,15 @@ int main() {
 
     std::cout << "[3] User Task: \"" << user_task << "\"" << std::endl << std::endl;
     std::vector<std::string> images_path = {
-        "build/Untitled.png",
+        // "build/Untitled.png",
     };
 
     AgentLoop agent;
-    std::cout << *agent.run(user_task,client,images_path);
-
+    auto result = agent.run(user_task,client,images_path);
+    if (result.has_value()) {
+        std::cout << result.value() << std::endl;
+    } else {
+        std::cout << result.error();
+    }
     return 0;
 }

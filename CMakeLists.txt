@@ -8,6 +8,10 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Tìm PkgConfig (dùng để tìm poppler-cpp)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(POPPLER REQUIRED poppler-cpp)
+
 # Tìm thư viện libcurl trên hệ thống
 find_package(CURL REQUIRED)
 
@@ -23,16 +27,23 @@ file(GLOB_RECURSE SOURCES
 # Tạo file thực thi build/main từ danh sách SOURCES
 add_executable(main ${SOURCES})
 
-# Thêm thư mục include nếu dự án có các file .h/.hpp trong src
-target_include_directories(main PRIVATE src)
+# Thêm thư mục include nếu dự án có các file .h/.hpp trong src + include của poppler
+target_include_directories(main PRIVATE 
+    src
+    ${POPPLER_INCLUDE_DIRS}
+)
 
-# Liên kết với thư viện libcurl
-target_link_libraries(main PRIVATE CURL::libcurl)
+# Liên kết với thư viện libcurl và poppler-cpp
+target_link_libraries(main PRIVATE 
+    CURL::libcurl
+    ${POPPLER_LIBRARIES}
+)
 
 target_precompile_headers(main PRIVATE
     <iostream>
     <vector>
     <string>
     <curl/curl.h>
+    <poppler-document.h> # Thêm header poppler vào precompiled headers (nếu muốn)
     "src/utils/exprtk.hpp" # Đường dẫn tương đối tới file exprtk.hpp của bạn
 )

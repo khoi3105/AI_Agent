@@ -2,6 +2,7 @@
 #include <string>
 #include <memory>
 #include <format>
+#include <iostream>
 
 #include "AgentLoop.h"
 #include "tool_call_parser.h"
@@ -9,7 +10,7 @@
 
 std::expected<std::string, std::string> AgentLoop::run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths){ 
     ToolRegistry registry;
-    nlohmann::json tools_schema = registry.get_all_schemas();
+    nlohmann::json tools_schema = registry.getAllSchemas();
 
     _conversationHistory.clear();
     _loopdetector.reset();
@@ -80,12 +81,25 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
 
             std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
 
-            std::string tool_result = registry.executeTool(request.tool_name,request.args["expression"].get<std::string>());
-            std::cout << "[Observe]: Ket qua Tool: " << tool_result << std::endl;
+            auto checkToolRegistry = registry.execute(request.tool_name,request.args["expression"].get<std::string>());
+            std::string tool_result;
+            if ( checkToolRegistry.has_value() ) {
 
-            // Đưa kết quả Tool (Observation) ngược lại hội thoại cho LLM đọc ở bước tiếp theo
-            std::string observation_msg = std::format("Ket qua tu cong cu '{}': {}", request.tool_name, tool_result);
-            _conversationHistory.push_back({{"role", "user"}, {"content", observation_msg}});
+                tool_result = *checkToolRegistry;
+                std::cout << "[Observe]: Ket qua Tool: " << tool_result << std::endl;
+
+                // Đưa kết quả Tool (Observation) ngược lại hội thoại cho LLM đọc ở bước tiếp theo
+                std::string observation_msg = std::format("Ket qua tu cong cu '{}': {}", request.tool_name, tool_result);
+                _conversationHistory.push_back({{"role", "user"}, {"content", observation_msg}});
+            }
+            else {
+                // Lấy chuỗi thông báo lỗi thông qua .error()
+                std::string error_msg = checkToolRegistry.error(); 
+
+                // Đưa thông báo lỗi ngược lại cho LLM để AI biết tool bị lỗi gì và điều chỉnh hành động
+                std::string observation_error = std::format("[ERROR] Thực thi công cụ '{}' thất bại: {}", request.tool_name, error_msg);
+                _conversationHistory.push_back({{"role", "user"}, {"content", observation_error}});
+            }
 
             continue; 
         }
