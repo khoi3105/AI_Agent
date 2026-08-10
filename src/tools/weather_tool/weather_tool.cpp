@@ -14,16 +14,14 @@ std::string WeatherTool::getDescription() const
     return "Get current weather information by city name.";
 }
 
-std::string WeatherTool::execute(const std::string& args)
+std::string WeatherTool::execute(const nlohmann::json& args)
 {
     try
     {
-        auto json = nlohmann::json::parse(args);
-
-        if (!json.contains("city"))
+        if (!args.contains("city") || !args["city"].is_string())
             return "Missing required parameter: city";
 
-        auto result = _service.getWeather(json["city"]);
+        auto result = _service.getWeather(args["city"].get<std::string>());
 
         if (!result)
             return result.error();

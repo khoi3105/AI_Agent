@@ -27,7 +27,7 @@ public:
      * @param args Chuỗi tham số hoặc dữ liệu dạng JSON do LLM truyền vào
      * @return Kết quả trả về dạng chuỗi văn bản (stdout/kết quả tính toán)
      */
-    virtual std::string execute(const std::string& args) = 0;
+    virtual std::string execute(const nlohmann::json& args) = 0;
 
     /**
      * @brief Lấy JSON Schema cấu trúc của Tool (theo chuẩn Ollama / OpenAI Tool Calling)

@@ -68,16 +68,14 @@ std::string MemorySaveTool::getDescription() const {
     return "Save an important piece of information into long-term memory.";
 }
 
-std::string MemorySaveTool::execute(const std::string& args)
+std::string MemorySaveTool::execute(const nlohmann::json& args)
 {
     try {
-        auto json = nlohmann::json::parse(args);
-
-        if (!json.contains("content") || !json["content"].is_string()) {
+        if (!args.contains("content") || !args["content"].is_string()) {
             return "Error: 'content' is required and must be a string.";
         }
 
-        std::string content = json["content"].get<std::string>();
+        std::string content = args["content"].get<std::string>();
 
         if (content.empty()) {
             return "Error: Nội dung không được để trống.";
@@ -122,7 +120,7 @@ std::string MemorySaveTool::execute(const std::string& args)
 
         return "Lưu thành công.";
 
-    } catch (const nlohmann::json::exception& e) {
+    } catch (const std::exception& e) {
         return "Invalid JSON: " + std::string(e.what());
     }
 }

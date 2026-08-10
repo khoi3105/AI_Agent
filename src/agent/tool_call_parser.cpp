@@ -14,11 +14,23 @@ std::string ToolCallParser::extract_json(const std::string& text) {
         }
     }
 
-    // 2. Nếu không có ```json, tìm cặp dấu ngoặc nhọn { ... } đầu tiên và cuối cùng
+    // 2. Tìm Object JSON đầu tiên bằng thuật toán đếm ngoặc {}
     size_t first_brace = text.find('{');
-    size_t last_brace = text.rfind('}');
-    if (first_brace != std::string::npos && last_brace != std::string::npos && last_brace > first_brace) {
-        return text.substr(first_brace, last_brace - first_brace + 1);
+    if (first_brace == std::string::npos) {
+        return text;
+    }
+
+    int brace_count = 0;
+    for (size_t i = first_brace; i < text.length(); ++i) {
+        if (text[i] == '{') {
+            brace_count++;
+        } else if (text[i] == '}') {
+            brace_count--;
+            if (brace_count == 0) {
+                // Đã tìm thấy dấu } đóng khớp hoàn toàn với dấu { đầu tiên
+                return text.substr(first_brace, i - first_brace + 1);
+            }
+        }
     }
 
     return text;
@@ -27,7 +39,7 @@ std::string ToolCallParser::extract_json(const std::string& text) {
 ToolCallRequest ToolCallParser::parse(const std::string& llm_response) {
     ToolCallRequest req;
     req.is_valid = false;
-
+    
     std::string clean_json = extract_json(llm_response);
 
     try{

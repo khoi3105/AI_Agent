@@ -21,7 +21,7 @@ public:
     /**
      * @brief Thực thi tính toán biểu thức số học (ví dụ: "15 * 17" hoặc "2 + 3 * 4")
      */
-    std::string execute(const std::string& args) override;
+    std::string execute(const nlohmann::json& args) override;
 
     nlohmann::json get_schema() const override;
 };

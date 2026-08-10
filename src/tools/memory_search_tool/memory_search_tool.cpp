@@ -30,20 +30,18 @@ std::string MemorySearchTool::getDescription() const {
     return "Search long-term memory for information relevant to a query.";
 }
 
-std::string MemorySearchTool::execute(const std::string& args) {
+std::string MemorySearchTool::execute(const nlohmann::json& args) {
     try {
-        auto json = nlohmann::json::parse(args);
-
-        if (!json.contains("query") || !json["query"].is_string()) {
+        if (!args.contains("query") || !args["query"].is_string()) {
             return "Error: 'query' is required and must be a string.";
         }
 
-        std::string query = json["query"].get<std::string>();
+        std::string query = args["query"].get<std::string>();
 
         int limit = 5;
 
-        if (json.contains("limit") && json["limit"].is_number_integer()) {
-            limit = json["limit"].get<int>();
+        if (args.contains("limit") && args["limit"].is_number_integer()) {
+            limit = args["limit"].get<int>();
         }
 
         if (limit <= 0) {
@@ -124,7 +122,7 @@ std::string MemorySearchTool::execute(const std::string& args) {
 
         return output.str();
 
-    } catch (const nlohmann::json::exception& e) {
+    } catch (const std::exception& e) {
         return "Invalid JSON: " + std::string(e.what());
     }
 }

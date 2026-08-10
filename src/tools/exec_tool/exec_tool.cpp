@@ -27,15 +27,20 @@ std::string ExecTool::getDescription() const {
     return "Execute a shell command and return stdout, stderr and exit code.";
 }
 
-std::string ExecTool::execute(const std::string& args)
+std::string ExecTool::execute(const nlohmann::json& args)
 {
-    try
-    {
-        auto j = nlohmann::json::parse(args);
-        auto result = _executor->execute(
-            j["command"].get<std::string>());
-        if (!result)
+    try {
+        if (!args.contains("command") || !args["command"].is_string()) {
+            return "[Lỗi ExecTool]: Tham số 'command' không hợp lệ hoặc bị thiếu.";
+        }
+
+        std::string command = args["command"].get<std::string>();
+
+        auto result = _executor->execute(command);
+        if (!result) {
             return result.error();
+        }
+
         nlohmann::json response = {
             {"exit_code", result->exit_code},
             {"stdout", result->stdout_text},
@@ -43,9 +48,8 @@ std::string ExecTool::execute(const std::string& args)
         };
         return response.dump(4);
     }
-    catch (const std::exception& e)
-    {
-        return e.what();
+    catch (const std::exception& e) {
+        return std::string("[ExecTool Exception]: ") + e.what();
     }
 }
 

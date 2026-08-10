@@ -12,7 +12,7 @@ public:
     ~WebSearchTool() override = default;
     std::string getName() const override;
     std::string getDescription() const override;
-    std::string execute(const std::string& args) override;
+    std::string execute(const nlohmann::json& args) override;
     nlohmann::json get_schema() const override;
 };
 

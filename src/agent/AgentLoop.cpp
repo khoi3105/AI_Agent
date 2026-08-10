@@ -56,7 +56,9 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
 
         std::expected<std::string,std::string> llm_response = client->chat(_conversationHistory, image_paths);
         if (llm_response.has_value()) {
+            std::cout << "========================================================================\n";
             std::cout << std::format("--> Cau tra loi goc tu AI (Buoc {}):\n{}\n", step, *llm_response);
+            std::cout << "========================================================================\n";
         } else {
             return std::unexpected(std::format("[ERROR]: Khong nhan phan hoi tu LLM - {} !", llm_response.error()));
         }
@@ -81,7 +83,8 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
 
             std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
 
-            auto checkToolRegistry = registry.execute(request.tool_name,request.args["expression"].get<std::string>());
+            // TODO: Tong quat cho cac tool khac
+            auto checkToolRegistry = registry.execute(request.tool_name,request.args);
             std::string tool_result;
             if ( checkToolRegistry.has_value() ) {
 

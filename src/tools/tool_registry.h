@@ -19,7 +19,7 @@ public:
     std::expected<void, std::string>
     unregisterTool(const std::string& name);
     std::expected<std::unique_ptr<Tool>, std::string> getTool(const std::string& name) const;
-    std::expected<std::string, std::string> execute(const std::string& name, const std::string& args) const;
+    std::expected<std::string, std::string> execute(const std::string& name, const nlohmann::json& args) const;
     nlohmann::json getAllSchemas() const;
 private:
     std::unordered_map<std::string, Factory> _factories;
