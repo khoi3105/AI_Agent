@@ -70,3 +70,5 @@ Testing/
 
 # apiKey
 .env
+
+*.db
