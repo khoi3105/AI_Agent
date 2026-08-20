@@ -128,8 +128,8 @@ std::string MemorySaveTool::execute(const nlohmann::json& args)
 nlohmann::json MemorySaveTool::get_schema() const
 {
     return {
-        {"type", "function"},
-        {"function", {
+        {"type", "tool_call"},
+        {"tool_call", {
             {"name", "memory_save"},
             {"description",
                 "Save an important piece of information into long-term memory."},

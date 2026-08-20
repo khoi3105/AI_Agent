@@ -37,8 +37,8 @@ std::string WriteFileTool::execute(const nlohmann::json& args)
 nlohmann::json WriteFileTool::get_schema() const
 {
     return {
-        {"type", "function"},
-        {"function",
+        {"type", "tool_call"},
+        {"tool_call",
             {
                 {"name", getName()},
                 {"description", getDescription()},

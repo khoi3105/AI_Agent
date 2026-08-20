@@ -130,8 +130,8 @@ std::string MemorySearchTool::execute(const nlohmann::json& args) {
 nlohmann::json MemorySearchTool::get_schema() const
 {
     return {
-        {"type", "function"},
-        {"function", {
+        {"type", "tool_call"},
+        {"tool_call", {
             {"name", "memory_search"},
             {"description",
                 "Search long-term memory for information relevant to a query."},

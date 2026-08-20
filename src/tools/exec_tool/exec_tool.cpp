@@ -58,10 +58,10 @@ nlohmann::json ExecTool::get_schema() const
     return {
         {
             "type",
-            "function"
+            "tool_call"
         },
         {
-            "function",
+            "tool_call",
             {
                 {
                     "name",

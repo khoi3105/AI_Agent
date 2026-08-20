@@ -37,8 +37,8 @@ std::string WeatherTool::execute(const nlohmann::json& args)
 nlohmann::json WeatherTool::get_schema() const
 {
     return {
-        {"type", "function"},
-        {"function",
+        {"type", "tool_call"},
+        {"tool_call",
             {
                 {"name", getName()},
                 {"description", getDescription()},
