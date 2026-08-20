@@ -45,7 +45,7 @@ ToolCallRequest ToolCallParser::parse(const std::string& llm_response) {
     try{
         auto j = nlohmann::json::parse(clean_json);
         
-        if (j.contains("type") && j["type"] == "tool_call") {
+        if ((j.contains("type") && j["type"] == "tool_call") || (j.contains("type") && j["type"] == "function")) {
             req.tool_name = j["tool"].get<std::string>();
             req.args = j.value("args",nlohmann::json::object()); 
             req.is_valid = true;

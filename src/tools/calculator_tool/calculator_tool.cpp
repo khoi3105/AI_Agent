@@ -49,8 +49,8 @@ std::expected<std::string, std::string> CalculatorTool::evaluate(const std::stri
 
 nlohmann::json CalculatorTool::get_schema() const {
     return {
-        {"type", "function"},
-        {"function", {
+        {"type", "tool_call"},
+        {"tool_call", {
             {"name", getName()},
             {"description", "Đánh giá biểu thức toán học phức tạp bằng ExprTk (hỗ trợ +, -, *, /, mũ ^, ngoặc (), hàm lượng giác, v.v.)"},
             {"parameters", {

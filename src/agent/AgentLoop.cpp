@@ -3,6 +3,7 @@
 #include <memory>
 #include <format>
 #include <iostream>
+#include <chrono> // time
 
 #include "AgentLoop.h"
 #include "tool_call_parser.h"
@@ -54,6 +55,8 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
     while ( step < AgentLoop::MAXSTEP ) {  
         step++;
 
+        auto step_start_time = std::chrono::steady_clock::now();
+
         std::expected<std::string,std::string> llm_response = client->chat(_conversationHistory, image_paths);
         if (llm_response.has_value()) {
             std::cout << "========================================================================\n";
@@ -66,7 +69,15 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
         request = ToolCallParser::parse(*llm_response);
         _conversationHistory.push_back({{"role","assistant"},{"content",*llm_response}});
 
+        // Khởi tạo StepData để chứa dữ liệu nhật ký của lượt này
+        StepData current_step_data;
+        current_step_data.stepNumber = step;
+        current_step_data.thought = *llm_response;
+
         if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
+
+            current_step_data.actionName = request.tool_name;
+            current_step_data.actionArgs = request.args;
 
             LoopCheckResult _detectLoop = _loopdetector.checkLoop(request.tool_name,request.args);
 
@@ -78,6 +89,13 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
                     {"role","user"},
                     {"content","CANH BAO TU HE THONG: Ban dang goi cung 1 Tool voi cung tham so nhieu lan. Vui long chon cach khac hoac dua ra cau tra loi cuoi cung!"}
                 });
+                // Tính latency và bắn Hook trước khi continue
+                auto step_end_time = std::chrono::steady_clock::now();
+                current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
+                current_step_data.observation = "[CẢNH BÁO LẶP TỪ HỆ THỐNG]";
+                if (_stepHook) {
+                    _stepHook(current_step_data);
+                }
                 continue;
             }
 
@@ -91,6 +109,9 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
                 tool_result = *checkToolRegistry;
                 std::cout << "[Observe]: Ket qua Tool: " << tool_result << std::endl;
 
+                current_step_data.observation = tool_result;
+
+
                 // Đưa kết quả Tool (Observation) ngược lại hội thoại cho LLM đọc ở bước tiếp theo
                 std::string observation_msg = std::format("Ket qua tu cong cu '{}': {}", request.tool_name, tool_result);
                 _conversationHistory.push_back({{"role", "user"}, {"content", observation_msg}});
@@ -98,13 +119,31 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
             else {
                 // Lấy chuỗi thông báo lỗi thông qua .error()
                 std::string error_msg = checkToolRegistry.error(); 
+                current_step_data.observation = "[ERROR]: " + error_msg;
 
                 // Đưa thông báo lỗi ngược lại cho LLM để AI biết tool bị lỗi gì và điều chỉnh hành động
                 std::string observation_error = std::format("[ERROR] Thực thi công cụ '{}' thất bại: {}", request.tool_name, error_msg);
                 _conversationHistory.push_back({{"role", "user"}, {"content", observation_error}});
             }
 
+            auto step_end_time = std::chrono::steady_clock::now();
+            current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
+            if (_stepHook) {
+                _stepHook(current_step_data);
+            }
+
             continue; 
+        }
+
+        current_step_data.actionName = "finish";
+        current_step_data.actionArgs = request.args;
+        current_step_data.observation = "Completed final answer.";
+
+        auto step_end_time = std::chrono::steady_clock::now();
+        current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
+
+        if (_stepHook) {
+            _stepHook(current_step_data);
         }
 
         break;

@@ -300,10 +300,10 @@ nlohmann::json WebSearchTool::get_schema() const
 {
     return {
         {
-            "type", "function"
+            "type", "tool_call"
         },
         {
-            "function", {
+            "tool_call", {
                 {
                     "name", "web_search"
                 },

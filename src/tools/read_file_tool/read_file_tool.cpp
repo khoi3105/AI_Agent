@@ -33,8 +33,8 @@ std::string ReadFileTool::execute(const nlohmann::json& args) {
 
 nlohmann::json ReadFileTool::get_schema() const {
     return {
-        {"type", "function"},
-        {"function", {
+        {"type", "tool_call"},
+        {"tool_call", {
             {"name", getName()},
             {"description", getDescription()},
             {"parameters", {
