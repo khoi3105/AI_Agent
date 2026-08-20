@@ -24,6 +24,7 @@ file(GLOB_RECURSE SOURCES
     "src/utils/*.cpp"
     "src/tools/*.cpp"
     "src/agent/*.cpp"
+    "src/harness/*.cpp"
 )
 
 # Tạo file thực thi build/main từ danh sách SOURCES

@@ -22,7 +22,7 @@ struct BenchmarkTask {
     std::string setupScript;          // Thiết lập môi trường trước khi chạy
     std::vector<std::string> expectedKeywords; // Dùng cho Keyword Evaluation
     int maxSteps{10};
-    int timeoutSeconds{30};           // Thời gian chờ tối đa (giây)
+    int timeoutSeconds{60};           // Thời gian chờ tối đa (giây)
 
     static BenchmarkTask fromJson(const nlohmann::json& j);
 };

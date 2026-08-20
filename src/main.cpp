@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     // =========================================================================
     // CHẾ ĐỘ 1: CHẠY BENCHMARK HARNESS TỰ ĐỘNG
     // =========================================================================
-    bool run_benchmark_mode = true; // Đặt false nếu muốn chạy tương tác 1 câu lẻ bên dưới
+    bool run_benchmark_mode = false; // Đặt false nếu muốn chạy tương tác 1 câu lẻ bên dưới
 
     if (run_benchmark_mode) {
         cout << "\n======================================================\n";
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
         // =========================================================================
         // CHẾ ĐỘ 2: CHẠY TƯƠNG TÁC THỦ CÔNG (SINGLE RUN)
         // =========================================================================
-        string user_task = "Thực hiện phép tính 20 + 10. Và cho tôi hỏi thời tiết Hồ Chí Minh hôm nay như thế nào?";
+        string user_task = "Tìm kiếm trên web xem ai là hiệu trưởng hiện tại của Trường Đại học Khoa học Tự nhiên ĐHQG-HCM. Sau đó ghi vào file hcmus.txt";
         cout << "[3] User Task: \"" << user_task << "\"" << endl << endl;
         vector<string> images_path = {};
 
