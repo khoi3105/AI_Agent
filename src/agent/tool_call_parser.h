@@ -16,8 +16,9 @@ struct ToolCallRequest {
 class ToolCallParser {
 private:
 public:
+    static std::vector<std::string> extract_all_jsons(const std::string& text);
+    static std::vector<ToolCallRequest> parse_all(const std::string& llm_response);
     static ToolCallRequest parse(const std::string& llm_response);
-    static std::string extract_json(const std::string& text);
     ~ToolCallParser() = default;
 };
 

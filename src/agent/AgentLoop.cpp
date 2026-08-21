@@ -11,50 +11,20 @@
 
 std::expected<std::string, std::string> AgentLoop::run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths){ 
     ToolRegistry registry;
-    nlohmann::json tools_schema = registry.getAllSchemas();
-
     _conversationHistory.clear();
     _loopdetector.reset();
-
-    std::string system_prompt = R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
-
-    === DANH SÁCH CÔNG CỤ ĐƯỢC PHÉP SỬ DỤNG (JSON SCHEMA) ===
-    )" + tools_schema.dump(2) + R"(
-
-    === QUY TẮC RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
-    1. MỖI LƯỢT CHỈ ĐƯỢC TRẢ VỀ DUY NHẤT 01 KHỐI JSON. KHÔNG VIẾT BẤT KỲ LỜI VĂN MỞ ĐẦU HAY GIẢI THÍCH NÀO KHÁC.
-    2. KHÔNG TỰ TÍNH TOÁN HAY GIẢ LẬP KẾT QUẢ TOOL. Nếu tác vụ có phép tính hoặc tra cứu, BẮT BUỘC trả về "tool_call" cho bước đó.
-    3. Nếu người dùng hỏi nhiều câu: Hãy gọi 01 Tool cho câu hỏi đầu tiên. Sau khi nhận được kết quả (Observation), bạn mới tiếp tục gọi Tool cho câu tiếp theo hoặc tổng hợp câu trả lời.
     
-    Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
-
-    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Sử dụng khi và chỉ khi câu hỏi yêu cầu thực thi hoặc tính toán liên quan đến các công cụ trong danh sách trên)
-    {   
-    "type": "tool_call",
-    "tool": "<tên_tool_chính_xác_trong_schema>",
-    "args": { <các_tham_số_đúng_định_dạng_properties_trong_schema> }
-    }
-
-    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, hoặc khi KHÔNG CÓ công cụ nào phù hợp)
-    {
-    "type": "response",
-    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_của_bạn>"
-    }
-
-    === RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
-    - KHÔNG TỰ TÍNH TOÁN HAY GIẢI BÀI TOÁN. Khi phát hiện phép tính, PHẢI tạo "tool_call" ngay lập tức để Tool xử lý.
-    - KHÔNG viết lời mở đầu, KHÔNG giải thích các bước tính toán (ví dụ: "Tôi sẽ dùng calculator...", "20 + 160 = 180...").
-    )";
-
     // Lưu lại lịch sử 
+    std::string system_prompt = prepareSystemPrompt(registry);
     _conversationHistory.push_back({{"role", "system"}, {"content", system_prompt }});
     _conversationHistory.push_back({{"role", "user"}, {"content", user_task}});
 
     int step = 0;
     ToolCallRequest request;
-    while ( step < AgentLoop::MAXSTEP ) {  
-        step++;
 
+    // VÒNG LẶP REACT (Observe -> Think -> Act)
+    while ( step < AgentLoop::_maxstep ) {  
+        step++;
         auto step_start_time = std::chrono::steady_clock::now();
 
         std::expected<std::string,std::string> llm_response = client->chat(_conversationHistory, image_paths);
@@ -66,7 +36,7 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
             return std::unexpected(std::format("[ERROR]: Khong nhan phan hoi tu LLM - {} !", llm_response.error()));
         }
 
-        request = ToolCallParser::parse(*llm_response);
+        request = parseStepResponse(*llm_response);
         _conversationHistory.push_back({{"role","assistant"},{"content",*llm_response}});
 
         // Khởi tạo StepData để chứa dữ liệu nhật ký của lượt này
@@ -89,10 +59,12 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
                     {"role","user"},
                     {"content","CANH BAO TU HE THONG: Ban dang goi cung 1 Tool voi cung tham so nhieu lan. Vui long chon cach khac hoac dua ra cau tra loi cuoi cung!"}
                 });
+
                 // Tính latency và bắn Hook trước khi continue
                 auto step_end_time = std::chrono::steady_clock::now();
                 current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
                 current_step_data.observation = "[CẢNH BÁO LẶP TỪ HỆ THỐNG]";
+                
                 if (_stepHook) {
                     _stepHook(current_step_data);
                 }
@@ -102,29 +74,10 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
             std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
 
             // TODO: Tong quat cho cac tool khac
-            auto checkToolRegistry = registry.execute(request.tool_name,request.args);
+            auto checkToolRegistry = act(registry, request.tool_name, request.args);
             std::string tool_result;
-            if ( checkToolRegistry.has_value() ) {
-
-                tool_result = *checkToolRegistry;
-                std::cout << "[Observe]: Ket qua Tool: " << tool_result << std::endl;
-
-                current_step_data.observation = tool_result;
-
-
-                // Đưa kết quả Tool (Observation) ngược lại hội thoại cho LLM đọc ở bước tiếp theo
-                std::string observation_msg = std::format("Ket qua tu cong cu '{}': {}", request.tool_name, tool_result);
-                _conversationHistory.push_back({{"role", "user"}, {"content", observation_msg}});
-            }
-            else {
-                // Lấy chuỗi thông báo lỗi thông qua .error()
-                std::string error_msg = checkToolRegistry.error(); 
-                current_step_data.observation = "[ERROR]: " + error_msg;
-
-                // Đưa thông báo lỗi ngược lại cho LLM để AI biết tool bị lỗi gì và điều chỉnh hành động
-                std::string observation_error = std::format("[ERROR] Thực thi công cụ '{}' thất bại: {}", request.tool_name, error_msg);
-                _conversationHistory.push_back({{"role", "user"}, {"content", observation_error}});
-            }
+            
+            observe(request.tool_name, checkToolRegistry, current_step_data);
 
             auto step_end_time = std::chrono::steady_clock::now();
             current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
@@ -149,16 +102,77 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
         break;
     }
 
-    if (step >= AgentLoop::MAXSTEP) {
+    if (step >= AgentLoop::_maxstep) {
         return std::unexpected("[ERROR]: Da dat so buoc toi da!");
     }
 
+    return formatFinalResponse(request);
+}
+
+std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry){
+    nlohmann::json tools_schema = registry.getAllSchemas();
+    return R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
+
+    === DANH SÁCH CÔNG CỤ ĐƯỢC PHÉP SỬ DỤNG (JSON SCHEMA) ===
+    )" + tools_schema.dump(2) + R"(
+
+    === QUY TẮC RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
+    1. MỖI LƯỢT CHỈ ĐƯỢC TRẢ VỀ DUY NHẤT 01 KHỐI JSON. KHÔNG VIẾT BẤT KỲ LỜI VĂN MỞ ĐẦU HAY GIẢI THÍCH NÀO KHÁC.
+    2. KHÔNG TỰ TÍNH TOÁN HAY GIẢ LẬP KẾT QUẢ TOOL. Nếu tác vụ có phép tính hoặc tra cứu, BẮT BUỘC trả về "tool_call" cho bước đó.
+    3. Nếu người dùng hỏi nhiều câu: Hãy gọi 01 Tool cho câu hỏi đầu tiên. Sau khi nhận được kết quả (Observation), bạn mới tiếp tục gọi Tool cho câu tiếp theo hoặc tổng hợp câu trả lời và cách nhau bởi định dạng: ```json <...> ```
+    
+    Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
+
+    1. ĐỊNH DẠNG 1: GỌI CÔNG CỤ (Sử dụng khi và chỉ khi câu hỏi yêu cầu thực thi hoặc tính toán liên quan đến các công cụ trong danh sách trên)
+    {   
+    "type": "tool_call",
+    "tool": "<tên_tool_chính_xác_trong_schema>",
+    "args": { <các_tham_số_đúng_định_dạng_properties_trong_schema> }
+    }
+
+    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, hoặc khi KHÔNG CÓ công cụ nào phù hợp)
+    {
+    "type": "response",
+    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_của_bạn>"
+    }
+
+    === RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
+    - KHÔNG TỰ TÍNH TOÁN HAY GIẢI BÀI TOÁN. Khi phát hiện phép tính, PHẢI tạo "tool_call" ngay lập tức để Tool xử lý.
+    - KHÔNG viết lời mở đầu, KHÔNG giải thích các bước tính toán (ví dụ: "Tôi sẽ dùng calculator...", "20 + 160 = 180...").
+    )";
+}
+
+ToolCallRequest AgentLoop::parseStepResponse(const std::string& raw_response) {
+    return ToolCallParser::parse(raw_response);
+}
+
+std::expected<std::string, std::string> AgentLoop::act(ToolRegistry& registry, const std::string& tool_name, const nlohmann::json& args) {
+    return registry.execute(tool_name, args);
+}
+
+void AgentLoop::observe(const std::string& tool_name, const std::expected<std::string, std::string>& tool_result, StepData& out_step_data) {
+    if (tool_result.has_value()) {
+        std::string res_str = *tool_result;
+        std::cout << "[Observe]: Ket qua Tool: " << res_str << std::endl;
+        
+        out_step_data.observation = res_str;
+
+        std::string observation_msg = std::format("Ket qua tu cong cu '{}': {}", tool_name, res_str);
+        _conversationHistory.push_back({{"role", "user"}, {"content", observation_msg}});
+    } else {
+        std::string error_msg = tool_result.error();
+        out_step_data.observation = "[ERROR]: " + error_msg;
+
+        std::string observation_error = std::format("[ERROR] Thuc thi cong cu '{}' that bai: {}", tool_name, error_msg);
+        _conversationHistory.push_back({{"role", "user"}, {"content", observation_error}});
+    }
+}
+
+std::expected<std::string, std::string> AgentLoop::formatFinalResponse(const ToolCallRequest& request) {
     try {
-        // Trường hợp 1: args là JSON Object chứa key "text"
         if (request.args.is_object() && request.args.contains("text")) {
             return std::format("[4] Tra loi: {}\n", request.args["text"].get<std::string>());
         }
-        // Trường hợp 2: args đã được parser đưa về dạng string
         else if (request.args.is_string()) {
             return std::format("[4] Tra loi: {}\n", request.args.get<std::string>());
         }
@@ -167,7 +181,6 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
         return std::unexpected(std::format("[JSON Exception - Output Fallback]: {}", e.what()));
     }
 
-    // Fallback: Lấy chuỗi thô cuối cùng của AI trong lịch sử nếu parse không khớp định dạng
     if (!_conversationHistory.empty()) {
         std::string raw_fallback = _conversationHistory.back()["content"].get<std::string>();
         return std::format("[4] Tra loi: {}\n", raw_fallback);

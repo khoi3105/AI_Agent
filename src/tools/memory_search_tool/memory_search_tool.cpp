@@ -134,7 +134,7 @@ nlohmann::json MemorySearchTool::get_schema() const
         {"tool_call", {
             {"name", "memory_search"},
             {"description",
-                "Search long-term memory for information relevant to a query."},
+                "Search long-term memory for information relevant to a query.Search ONLY in the user's private local memory for previously saved notes or user-specific facts. DO NOT use this for general knowledge or internet searches"},
 
             {"parameters", {
                 {"type", "object"},

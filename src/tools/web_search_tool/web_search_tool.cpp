@@ -309,7 +309,7 @@ nlohmann::json WebSearchTool::get_schema() const
                 },
                 {
                     "description",
-                    "Search the web using DuckDuckGo."
+                    "Search the web using DuckDuckGo. ALWAYS use this tool to search the internet/web for general knowledge, external facts, real-time news, or official documentation."
                 },
                 {
                     "parameters", {
