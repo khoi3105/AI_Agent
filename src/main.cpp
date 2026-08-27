@@ -2,49 +2,80 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include <cstdlib> //std::env
+#include <cstdlib>
+#include <format>
 #include <nlohmann/json.hpp>
 
 // Include các file header trong dự án
 #include "agent/AgentLoop.h"
+#include "client/llm_client.h"
 #include "client/ollama_client.h"
+#include "environment/environment.h"
+#include "environment/native_environment.h"
+#include "environment/sandbox_environment.h"
 #include "utils/env_utils.h"
+#include "harness/harness_runner.h"
 
-int main() {
+using namespace std;
+
+int main(int argc, char* argv[]) {
     // 1. Khai báo thông tin API
-    std::string model = "meta/llama-3.2-11b-vision-instruct";
-    std::string base_url = "https://integrate.api.nvidia.com/v1/chat/completions";
-    std::string api_key = getEnvVar("LLAMA_API_KEY");
+    string model = "meta/llama-3.2-11b-vision-instruct";
+    string base_url = "https://integrate.api.nvidia.com/v1/chat/completions";
+    string api_key = getEnvVar("LLAMA_API_KEY");
 
     // 2. Khởi tạo LLM Client (Sử dụng con trỏ Lớp cơ sở - Abstraction)
-    std::cout << "[1] Dang khoi tao LLM Client..." << std::endl;
-    std::shared_ptr<LLMClient> client = std::make_shared<OllamaClient>(model, base_url, api_key);
+    cout << "[1] Dang khoi tao LLM Client..." << endl;
+    shared_ptr<LLMClient> client = make_shared<OllamaClient>(model, base_url, api_key);
 
-    // 3. Khởi tạo ToolRegistry (Phiên bản POC đã hardcode CalculatorTool)
-    std::cout << "[2] Dang khoi tao ToolRegistry..." << std::endl;
-    // ToolRegistry registry;
+    // 3. Khởi tạo Môi trường thực thi (Environment Abstraction: Native hoặc Sandbox)
+    shared_ptr<Environment> env = make_shared<NativeEnvironment>();
 
-    // 4. Chuẩn bị câu hỏi (Task) từ người dùng
-    // std::string user_task = "Thực hiện phép tính 20 + 10 * ( 10 + 6 )= ?";
-    std::string user_task = " Thực hiện phép tính 20 + 10. Và cho tôi hỏi thời tiết Hồ Chí Minh hôm nay như thế nào?";
-    // std::string user_task = "Hãy dùng công cụ calculator tính 15 * 87. Sau khi tính xong, hãy gọi lại calculator tính lại đúng phép tính 15 * 87 thêm 3 lần nữa để chắc chắn kết quả không bị sai";
-    // std::string user_task = "Doraemon là ai vậy? ";
-    // std::string user_task = "tính biểu thức trong bức ảnh ";
-    // std::string user_task;
-    // std::cout << "Nhap prompt cua ban: ";
-    // getline(std::cin, user_task);
+    // =========================================================================
+    // CHẾ ĐỘ 1: CHẠY BENCHMARK HARNESS TỰ ĐỘNG
+    // =========================================================================
+    bool run_benchmark_mode = true; // Đặt false nếu muốn chạy tương tác 1 câu lẻ bên dưới
 
-    std::cout << "[3] User Task: \"" << user_task << "\"" << std::endl << std::endl;
-    std::vector<std::string> images_path = {
-        // "build/Untitled.png",
-    };
+    if (run_benchmark_mode) {
+        cout << "\n======================================================\n";
+        cout << "           KHOI DONG BENCHMARK EVALUATION             \n";
+        cout << "======================================================\n";
 
-    AgentLoop agent;
-    auto result = agent.run(user_task,client,images_path);
-    if (result.has_value()) {
-        std::cout << result.value() << std::endl;
+        // Khởi tạo HarnessRunner với Environment và chỉ định thư mục xuất kết quả JSON
+        HarnessRunner runner(client, env, "benchmark/results");
+
+        // Nạp tập task benchmark
+        string benchmark_file = "benchmark/tasks.json";
+        cout << format("Dang nap file benchmark: {}...\n", benchmark_file);
+
+        auto load_res = runner.loadTasks(benchmark_file);
+        if (!load_res.has_value()) {
+            cerr << format("[ERROR]: Khong the nap tasks: {}\n", load_res.error());
+            return 1;
+        }
+
+        cout << format("-> Da nap thanh cong {} tasks!\n", runner.getTasks().size());
+
+        // Chạy toàn bộ Benchmark Batch (Tự động tiêm StepHook, Timeout, Evaluator & xuất Trajectory)
+        auto batch_results = runner.runBatch();
+
+        cout << "\n-> Tat ca file log chi tiet da duoc luu tai: benchmark/results/\n";
+        return 0;
     } else {
-        std::cout << result.error();
+        // =========================================================================
+        // CHẾ ĐỘ 2: CHẠY TƯƠNG TÁC THỦ CÔNG (SINGLE RUN)
+        // =========================================================================
+        string user_task = "Tìm kiếm trên web xem ai là hiệu trưởng hiện tại của Trường Đại học Khoa học Tự nhiên ĐHQG-HCM. Sau đó ghi vào file hcmus.txt";
+        cout << "[3] User Task: \"" << user_task << "\"" << endl << endl;
+        vector<string> images_path = {};
+
+        AgentLoop agent;
+        auto result = agent.run(user_task, client, images_path);
+        if (result.has_value()) {
+            cout << result.value() << endl;
+        } else {
+            cout << result.error() << endl;
+        }
     }
     return 0;
 }

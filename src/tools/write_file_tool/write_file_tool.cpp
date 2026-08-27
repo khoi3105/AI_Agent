@@ -12,19 +12,33 @@ std::string WriteFileTool::getDescription() const {
     return "Write text content to a file. Creates the file if it does not exist and overwrites existing content.";
 }
 
-std::string WriteFileTool::execute(const std::string& args)
+std::string WriteFileTool::execute(const nlohmann::json& args)
 {
-    auto j = nlohmann::json::parse(args);
-    auto result = FileUtils::writeFile(j["path"].get<std::string>(),j["content"].get<std::string>());
-    if (!result)return result.error();
-    return "Ghi file thành công!";
+    try
+    {
+        // Trích xuất trực tiếp các tham số từ JSON object args
+        std::string path = args["path"].get<std::string>();
+        std::string content = args["content"].get<std::string>();
+
+        auto result = FileUtils::writeFile(path, content);
+        if (!result)
+        {
+            return result.error();
+        }
+
+        return "Ghi file thành công!";
+    }
+    catch (const std::exception& e)
+    {
+        return std::string("WriteFileTool error: ") + e.what();
+    }
 }
 
 nlohmann::json WriteFileTool::get_schema() const
 {
     return {
-        {"type", "function"},
-        {"function",
+        {"type", "tool_call"},
+        {"tool_call",
             {
                 {"name", getName()},
                 {"description", getDescription()},

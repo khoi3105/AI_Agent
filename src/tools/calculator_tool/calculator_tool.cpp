@@ -11,12 +11,18 @@ std::string CalculatorTool::getDescription() const{
     return "Evaluates arithmetic expressions provided as infix strings with support for parentheses and the operators +, -, *, and /, returning the computed numeric result.";
 }
 
-std::string CalculatorTool::execute(const std::string& args) {
-    auto result = evaluate(args);
-    if (!result) {
+std::string CalculatorTool::execute(const nlohmann::json& args) {
+    if (!args.contains("expression") || !args["expression"].is_string()) {
+        return "[Lỗi Calculator]: Thiếu hoặc sai định dạng tham số 'expression'.";
+    }
+
+    std::string expression = args["expression"].get<std::string>();
+    
+    auto result = evaluate(expression); // Hàm tự viết hoặc gọi thư viện tính toán
+    if (!result.has_value()) {
         return "Phép tính lỗi: " + result.error();
     }
-    return *result;
+    return result.value();
 }
 
 std::expected<std::string, std::string> CalculatorTool::evaluate(const std::string& expr)
@@ -43,8 +49,8 @@ std::expected<std::string, std::string> CalculatorTool::evaluate(const std::stri
 
 nlohmann::json CalculatorTool::get_schema() const {
     return {
-        {"type", "function"},
-        {"function", {
+        {"type", "tool_call"},
+        {"tool_call", {
             {"name", getName()},
             {"description", "Đánh giá biểu thức toán học phức tạp bằng ExprTk (hỗ trợ +, -, *, /, mũ ^, ngoặc (), hàm lượng giác, v.v.)"},
             {"parameters", {

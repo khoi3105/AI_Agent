@@ -259,34 +259,25 @@ std::string WebSearchTool::getDescription() const
     return "Search the web using DuckDuckGo.";
 }
 
-std::string WebSearchTool::execute(const std::string& args)
+std::string WebSearchTool::execute(const nlohmann::json& args)
 {
     try
     {
-        auto jsonArgs =
-            nlohmann::json::parse(args);
+        std::string query = args["query"].get<std::string>();
 
-        std::string query =
-            jsonArgs.at("query").get<std::string>();
+        std::string url = "https://html.duckduckgo.com/html/?q=" +
+                          agent::utils::urlEncode(query);
 
-        std::string url =
-            "https://html.duckduckgo.com/html/?q=" +
-            agent::utils::urlEncode(query);
-
-        auto response =
-            agent::utils::HttpClient::get(url);
+        auto response = agent::utils::HttpClient::get(url);
 
         if (!response)
         {
-            return "HTTP request failed: " +
-                   response.error();
+            return "HTTP request failed: " + response.error();
         }
 
-        auto results =
-            parseSearchResults(response.value());
+        auto results = parseSearchResults(response.value());
 
-        nlohmann::json output =
-            nlohmann::json::array();
+        nlohmann::json output = nlohmann::json::array();
 
         for (const auto& result : results)
         {
@@ -301,9 +292,7 @@ std::string WebSearchTool::execute(const std::string& args)
     }
     catch (const std::exception& e)
     {
-        return std::string(
-            "WebSearchTool error: "
-        ) + e.what();
+        return std::string("WebSearchTool error: ") + e.what();
     }
 }
 
@@ -311,16 +300,16 @@ nlohmann::json WebSearchTool::get_schema() const
 {
     return {
         {
-            "type", "function"
+            "type", "tool_call"
         },
         {
-            "function", {
+            "tool_call", {
                 {
                     "name", "web_search"
                 },
                 {
                     "description",
-                    "Search the web using DuckDuckGo."
+                    "Search the web using DuckDuckGo. ALWAYS use this tool to search the internet/web for general knowledge, external facts, real-time news, or official documentation."
                 },
                 {
                     "parameters", {

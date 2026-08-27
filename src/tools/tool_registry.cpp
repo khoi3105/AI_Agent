@@ -94,7 +94,7 @@ std::expected<std::unique_ptr<Tool>, std::string> ToolRegistry::getTool(const st
     return it->second();
 }
 
-std::expected<std::string, std::string> ToolRegistry::execute(const std::string& name, const std::string& args) const {
+std::expected<std::string, std::string> ToolRegistry::execute(const std::string& name, const nlohmann::json& args) const {
     auto tool = getTool(name);
     if (!tool) return std::unexpected(tool.error());
     return tool.value()->execute(args);
