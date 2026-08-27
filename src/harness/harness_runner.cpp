@@ -5,6 +5,8 @@
 #include <fstream>
 #include <chrono>
 #include <future>
+#include <thread>
+#include <stop_token>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -85,7 +87,7 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
     Trajectory trajectory(task.id, modelName, task.instruction);
 
     // 3. Khởi tạo AgentLoop và tiêm Hook Callback (Observer Pattern)
-    AgentLoop agent;
+    AgentLoop agent(task.maxSteps);
     agent.setStepHook([&trajectory](const StepData& step) {
         std::cout << std::format("  -> [Hook Captured] Step {}: Tool '{}' (Latency: {}ms)\n", 
                                  step.stepNumber, step.actionName, step.latencyMs);
@@ -94,45 +96,59 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
 
     auto startTime = std::chrono::steady_clock::now();
 
-    // 4. Quản lý Timeout qua std::async
-    auto agentFuture = std::async(std::launch::async, [&]() {
-        return agent.run(task.instruction, _client);
-    });
+    // 4. Quản lý Timeout qua std::stop_source & std::jthread (C++20 Cooperative Cancellation)
+    std::stop_source stop_source;
+    std::promise<std::expected<std::string, std::string>> agentPromise;
+    auto agentFuture = agentPromise.get_future();
 
-    std::future_status status = agentFuture.wait_for(std::chrono::seconds(task.timeoutSeconds));
+    {
+        std::jthread workerThread([&agent, &task, this, token = stop_source.get_token(), &agentPromise]() {
+            try {
+                auto res = agent.run(task.instruction, _client, {}, token);
+                agentPromise.set_value(res);
+            } catch (const std::exception& e) {
+                agentPromise.set_value(std::unexpected(std::format("[Exception]: {}", e.what())));
+            } catch (...) {
+                agentPromise.set_value(std::unexpected("[Unknown Exception during agent execution]"));
+            }
+        });
 
-    auto endTime = std::chrono::steady_clock::now();
-    int64_t totalDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-    trajectory.setTotalTimeMs(totalDurationMs);
+        std::future_status status = agentFuture.wait_for(std::chrono::seconds(task.timeoutSeconds));
 
-    // 5. Thu thập kết quả & Thực hiện Đánh giá (Evaluate)
-    if (status == std::future_status::timeout) {
-        std::cerr << std::format("[ERROR]: Task {} timed out after {}s!\n", task.id, task.timeoutSeconds);
-        trajectory.setFinalOutput(std::format("[ERROR]: Timeout exceeded ({}s)", task.timeoutSeconds));
-        trajectory.setSuccess(false);
-    } else {
-        auto runResult = agentFuture.get();
-        if (runResult.has_value()) {
-            trajectory.setFinalOutput(*runResult);
-            std::cout << std::format("[HarnessRunner] Agent finished execution.\n");
+        auto endTime = std::chrono::steady_clock::now();
+        int64_t totalDurationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        trajectory.setTotalTimeMs(totalDurationMs);
 
-            // ĐÁNH GIÁ TỰ ĐỘNG BẰNG EVALUATOR STRATEGY
-            auto evaluator = EvaluatorFactory::create(task.evalType);
-            
-            nlohmann::json taskConfig;
-            taskConfig["expected_keywords"] = task.expectedKeywords;
-            taskConfig["eval_script"] = task.evalScript;
-
-            bool isPassed = evaluator->evaluate(trajectory.getFinalOutput(), taskConfig);
-            trajectory.setSuccess(isPassed);
-
-            std::cout << std::format("[HarnessRunner] Evaluation Result: {}\n", isPassed ? "PASSED (SUCCESS)" : "FAILED");
-        } else {
-            trajectory.setFinalOutput(std::format("[AgentLoop Failed]: {}", runResult.error()));
+        // 5. Thu thập kết quả & Thực hiện Đánh giá (Evaluate)
+        if (status == std::future_status::timeout) {
+            std::cerr << std::format("[ERROR]: Task {} timed out after {}s!\n", task.id, task.timeoutSeconds);
+            stop_source.request_stop(); // Phát tín hiệu ngắt ngay lập tức cho AgentLoop
+            trajectory.setFinalOutput(std::format("[ERROR]: Timeout exceeded ({}s)", task.timeoutSeconds));
             trajectory.setSuccess(false);
-            std::cerr << std::format("[ERROR]: AgentLoop error: {}\n", runResult.error());
+        } else {
+            auto runResult = agentFuture.get();
+            if (runResult.has_value()) {
+                trajectory.setFinalOutput(*runResult);
+                std::cout << std::format("[HarnessRunner] Agent finished execution.\n");
+
+                // ĐÁNH GIÁ TỰ ĐỘNG BẰNG EVALUATOR STRATEGY
+                auto evaluator = EvaluatorFactory::create(task.evalType);
+                
+                nlohmann::json taskConfig;
+                taskConfig["expected_keywords"] = task.expectedKeywords;
+                taskConfig["eval_script"] = task.evalScript;
+
+                bool isPassed = evaluator->evaluate(trajectory.getFinalOutput(), taskConfig);
+                trajectory.setSuccess(isPassed);
+
+                std::cout << std::format("[HarnessRunner] Evaluation Result: {}\n", isPassed ? "PASSED (SUCCESS)" : "FAILED");
+            } else {
+                trajectory.setFinalOutput(std::format("[AgentLoop Failed]: {}", runResult.error()));
+                trajectory.setSuccess(false);
+                std::cerr << std::format("[ERROR]: AgentLoop error: {}\n", runResult.error());
+            }
         }
-    }
+    } // workerThread tự động join sạch sẽ tại đây khi kết thúc scope
 
     // 6. Xuất báo cáo vết thực thi ra file JSON (trajectory_{task_id}.json)
     std::string exportPath = std::format("{}/trajectory_{}.json", _outputDir, task.id);

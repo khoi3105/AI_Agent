@@ -7,19 +7,7 @@
 #include <nlohmann/json.hpp>
 #include <expected>
 
-// Cấu trúc dữ liệu lưu thông tin của từng bước (step) trong vòng lặp ReAct
-struct StepData {
-    int stepNumber{0};
-    std::string thought;
-    std::string actionName;
-    nlohmann::json actionArgs;
-    std::string observation;
-    int64_t latencyMs{0};
-    int tokensUsed{0};
-
-    // Chuyển dữ liệu của 1 bước thành JSON
-    nlohmann::json toJson() const;
-};
+#include "../agent/step_data.h"
 
 // Lớp quản lý toàn bộ quá trình thực thi và xuất log
 class Trajectory {

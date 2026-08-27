@@ -4,12 +4,22 @@
 #include <format>
 #include <iostream>
 #include <chrono> // time
+#include <stop_token>
 
 #include "AgentLoop.h"
 #include "tool_call_parser.h"
 #include "../tools/tool_registry.h"
 
-std::expected<std::string, std::string> AgentLoop::run(const std::string& user_task, const std::shared_ptr<LLMClient>& client, const std::vector<std::string>& image_paths){ 
+std::expected<std::string, std::string> AgentLoop::run(
+    const std::string& user_task, 
+    const std::shared_ptr<LLMClient>& client, 
+    const std::vector<std::string>& image_paths,
+    std::stop_token stop_token) 
+{ 
+    if (stop_token.stop_requested()) {
+        return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
+    }
+
     ToolRegistry registry;
     _conversationHistory.clear();
     _loopdetector.reset();
@@ -24,10 +34,19 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
 
     // VÒNG LẶP REACT (Observe -> Think -> Act)
     while ( step < AgentLoop::_maxstep ) {  
+        if (stop_token.stop_requested()) {
+            return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
+        }
+
         step++;
         auto step_start_time = std::chrono::steady_clock::now();
 
         std::expected<std::string,std::string> llm_response = client->chat(_conversationHistory, image_paths);
+        
+        if (stop_token.stop_requested()) {
+            return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
+        }
+
         if (llm_response.has_value()) {
             std::cout << "========================================================================\n";
             std::cout << std::format("--> Cau tra loi goc tu AI (Buoc {}):\n{}\n", step, *llm_response);
@@ -71,11 +90,13 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
                 continue;
             }
 
+            if (stop_token.stop_requested()) {
+                return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
+            }
+
             std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
 
-            // TODO: Tong quat cho cac tool khac
             auto checkToolRegistry = act(registry, request.tool_name, request.args);
-            std::string tool_result;
             
             observe(request.tool_name, checkToolRegistry, current_step_data);
 
@@ -100,6 +121,10 @@ std::expected<std::string, std::string> AgentLoop::run(const std::string& user_t
         }
 
         break;
+    }
+
+    if (stop_token.stop_requested()) {
+        return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
     }
 
     if (step >= AgentLoop::_maxstep) {
