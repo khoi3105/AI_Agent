@@ -3,6 +3,7 @@
 #include <sstream>
 #include <stdexcept>
 
+
 MemorySearchTool::MemorySearchTool() : _db(nullptr) {
     const char* dbPath = "memory.db";
     if (sqlite3_open(dbPath, &_db) != SQLITE_OK) {

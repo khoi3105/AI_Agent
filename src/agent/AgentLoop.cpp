@@ -9,6 +9,7 @@
 #include "AgentLoop.h"
 #include "tool_call_parser.h"
 #include "../tools/tool_registry.h"
+#include "../tools/tool_policy.h"
 
 std::expected<std::string, std::string> AgentLoop::run(
     const std::string& user_task, 
@@ -21,6 +22,7 @@ std::expected<std::string, std::string> AgentLoop::run(
     }
 
     ToolRegistry registry;
+    ToolPolicy toolPolicy;
     _conversationHistory.clear();
     _loopdetector.reset();
     
@@ -96,6 +98,51 @@ std::expected<std::string, std::string> AgentLoop::run(
 
             std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
 
+            // ================================
+            // TOOL POLICY
+            // ================================
+
+            auto policyResult = toolPolicy.validate(
+                request.tool_name,
+                request.args
+            );
+
+            if (!policyResult) {
+
+                std::cout
+                    << "[ToolPolicy] BLOCKED: "
+                    << policyResult.error()
+                    << '\n';
+
+                current_step_data.observation =
+                    "[POLICY BLOCKED] " +
+                    policyResult.error();
+
+                _conversationHistory.push_back({
+                    {"role", "user"},
+                    {"content",
+                        "[TOOL POLICY] Tool call bị từ chối: " +
+                        policyResult.error() +
+                        "\nHãy chọn hành động khác."
+                    }
+                });
+
+                auto step_end_time =
+                    std::chrono::steady_clock::now();
+
+                current_step_data.latencyMs =
+                    std::chrono::duration_cast<
+                        std::chrono::milliseconds
+                    >(
+                        step_end_time - step_start_time
+                    ).count();
+
+                if (_stepHook) {
+                    _stepHook(current_step_data);
+                }
+
+                continue;
+            }
             auto checkToolRegistry = act(registry, request.tool_name, request.args);
             
             observe(request.tool_name, checkToolRegistry, current_step_data);

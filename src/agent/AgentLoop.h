@@ -16,6 +16,7 @@
 #include "skill_loader.h"
 #include "../tools/tool_registry.h"
 
+
 class AgentLoop {
 protected:
     nlohmann::json _conversationHistory;
