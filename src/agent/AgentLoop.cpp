@@ -25,7 +25,7 @@ std::expected<std::string, std::string> AgentLoop::run(
     _loopdetector.reset();
     
     // Lưu lại lịch sử 
-    std::string system_prompt = prepareSystemPrompt(registry);
+    std::string system_prompt = prepareSystemPrompt(registry, user_task);
     _conversationHistory.push_back({{"role", "system"}, {"content", system_prompt }});
     _conversationHistory.push_back({{"role", "user"}, {"content", user_task}});
 
@@ -134,12 +134,22 @@ std::expected<std::string, std::string> AgentLoop::run(
     return formatFinalResponse(request);
 }
 
-std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry){
+std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry, const std::string& user_task){
     nlohmann::json tools_schema = registry.getAllSchemas();
+
+    std::string skills_section = "";
+    if (!user_task.empty()) {
+        auto skill_res = _skillLoader.selectSkillsForTask(user_task);
+        if (skill_res.has_value() && !skill_res.value().empty()) {
+            skills_section = "\n\n    === KỸ NĂNG HƯỚNG DẪN CHUYÊN BIỆT ĐƯỢC KÍCH HOẠT (APPLIED SKILLS) ===\n" + skill_res.value() + "\n";
+            std::cout << "[SkillLoader] Da kich hoat va nap ky nang cho nhiem vu hien tai.\n";
+        }
+    }
+
     return R"(Bạn là một Trợ lý AI hệ thống thông minh, hoạt động theo cơ chế chọn lọc công cụ chính xác.
 
     === DANH SÁCH CÔNG CỤ ĐƯỢC PHÉP SỬ DỤNG (JSON SCHEMA) ===
-    )" + tools_schema.dump(2) + R"(
+    )" + tools_schema.dump(2) + skills_section + R"(
 
     === QUY TẮC RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
     1. MỖI LƯỢT CHỈ ĐƯỢC TRẢ VỀ DUY NHẤT 01 KHỐI JSON. KHÔNG VIẾT BẤT KỲ LỜI VĂN MỞ ĐẦU HAY GIẢI THÍCH NÀO KHÁC.

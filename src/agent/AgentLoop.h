@@ -13,20 +13,22 @@
 #include "tool_call_parser.h"
 #include "../client/llm_client.h"
 #include "loop_detector.h"
+#include "skill_loader.h"
 #include "../tools/tool_registry.h"
 
 class AgentLoop {
 protected:
     nlohmann::json _conversationHistory;
     LoopDetector _loopdetector;
+    SkillLoader _skillLoader;
     int _maxstep{5};
 
 public:
     // Khai báo Callback Hook kiểu Observer
     using StepHook = std::function<void(const StepData&)>;
 
-    explicit AgentLoop(int max_steps = 5) 
-        : _maxstep(max_steps), _conversationHistory(nlohmann::json::array()) {}
+    explicit AgentLoop(int max_steps = 5, std::string skills_dir = "skills") 
+        : _maxstep(max_steps), _skillLoader(std::move(skills_dir)), _conversationHistory(nlohmann::json::array()) {}
 
     // Chạy vòng lặp Agent ReAct với hỗ trợ stop_token (C++20 Cooperative Cancellation & Timeout)
     std::expected<std::string, std::string> run(
@@ -40,10 +42,18 @@ public:
         _stepHook = std::move(hook);
     }
 
+    void setSkillsDir(const std::string& skills_dir) {
+        _skillLoader = SkillLoader(skills_dir);
+    }
+
+    SkillLoader& getSkillLoader() {
+        return _skillLoader;
+    }
+
     virtual ~AgentLoop() = default;
 
 protected:
-    virtual std::string prepareSystemPrompt(const ToolRegistry& registry);
+    virtual std::string prepareSystemPrompt(const ToolRegistry& registry, const std::string& user_task = "");
     virtual ToolCallRequest parseStepResponse(const std::string& raw_response);
     virtual std::expected<std::string, std::string> act(
         ToolRegistry& registry, 
