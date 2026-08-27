@@ -17,7 +17,6 @@ MemorySaveTool::MemorySaveTool() : _db(nullptr) {
     if (!initDatabase()) {
         sqlite3_close(_db);
         _db = nullptr;
-
         throw std::runtime_error(
             "Không thể khởi tạo cở sở dữ liệu"
         );
