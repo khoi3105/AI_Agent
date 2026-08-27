@@ -10,6 +10,7 @@
 #include "trajectory.h"
 #include "../agent/AgentLoop.h"
 #include "../client/llm_client.h"
+#include "../environment/environment.h"
 
 // Cấu trúc đại diện cho một Task kiểm thử Benchmark
 struct BenchmarkTask {
@@ -31,11 +32,16 @@ struct BenchmarkTask {
 class HarnessRunner {
 private:
     std::shared_ptr<LLMClient> _client;
+    std::shared_ptr<Environment> _env;
     std::string _outputDir;
     std::vector<BenchmarkTask> _tasks;
 
 public:
-    explicit HarnessRunner(std::shared_ptr<LLMClient> client, std::string outputDir = "benchmark/results");
+    explicit HarnessRunner(
+        std::shared_ptr<LLMClient> client, 
+        std::shared_ptr<Environment> env = nullptr,
+        std::string outputDir = "benchmark/results"
+    );
 
     // Nạp danh sách test tasks từ file JSON
     std::expected<bool, std::string> loadTasks(const std::string& tasksFilePath);
@@ -49,6 +55,8 @@ public:
     // Getters & Setters
     const std::vector<BenchmarkTask>& getTasks() const;
     void setOutputDir(const std::string& outputDir);
+    void setEnvironment(std::shared_ptr<Environment> env);
+    std::shared_ptr<Environment> getEnvironment() const;
 };
 
 #endif // HARNESS_RUNNER_H

@@ -1,25 +1,18 @@
 #include "exec_tool.h"
+#include "../../environment/native_environment.h"
 
 #include <nlohmann/json.hpp>
-
-#ifdef _WIN32
-#include "windows_shell_executor.h"
-#else
-#include "linux_shell_executor.h"
-#endif
-
 #include <memory>
 
-ExecTool::ExecTool()
+ExecTool::ExecTool(std::shared_ptr<Environment> env)
+    : _env(std::move(env))
 {
-#ifdef _WIN32
-    _executor = std::make_unique<WindowsShellExecutor>();
-#else
-    _executor = std::make_unique<LinuxShellExecutor>();
-#endif
+    if (!_env) {
+        _env = std::make_shared<NativeEnvironment>();
+    }
 }
 
-std::string ExecTool::getName() const{
+std::string ExecTool::getName() const {
     return "exec";
 }
 
@@ -36,8 +29,8 @@ std::string ExecTool::execute(const nlohmann::json& args)
 
         std::string command = args["command"].get<std::string>();
 
-        auto result = _executor->execute(command);
-        if (!result) {
+        auto result = _env->execute(command);
+        if (!result.has_value()) {
             return result.error();
         }
 

@@ -10,6 +10,9 @@
 #include "agent/AgentLoop.h"
 #include "client/llm_client.h"
 #include "client/ollama_client.h"
+#include "environment/environment.h"
+#include "environment/native_environment.h"
+#include "environment/sandbox_environment.h"
 #include "utils/env_utils.h"
 #include "harness/harness_runner.h"
 
@@ -25,6 +28,9 @@ int main(int argc, char* argv[]) {
     cout << "[1] Dang khoi tao LLM Client..." << endl;
     shared_ptr<LLMClient> client = make_shared<OllamaClient>(model, base_url, api_key);
 
+    // 3. Khởi tạo Môi trường thực thi (Environment Abstraction: Native hoặc Sandbox)
+    shared_ptr<Environment> env = make_shared<NativeEnvironment>();
+
     // =========================================================================
     // CHẾ ĐỘ 1: CHẠY BENCHMARK HARNESS TỰ ĐỘNG
     // =========================================================================
@@ -35,8 +41,8 @@ int main(int argc, char* argv[]) {
         cout << "           KHOI DONG BENCHMARK EVALUATION             \n";
         cout << "======================================================\n";
 
-        // Khởi tạo HarnessRunner và chỉ định thư mục xuất kết quả JSON
-        HarnessRunner runner(client, "benchmark/results");
+        // Khởi tạo HarnessRunner với Environment và chỉ định thư mục xuất kết quả JSON
+        HarnessRunner runner(client, env, "benchmark/results");
 
         // Nạp tập task benchmark
         string benchmark_file = "benchmark/tasks.json";

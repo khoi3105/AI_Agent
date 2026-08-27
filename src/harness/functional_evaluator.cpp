@@ -1,11 +1,16 @@
 #include "evaluator.h"
+#include "../environment/native_environment.h"
 #include <iostream>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
 
-FunctionalEvaluator::FunctionalEvaluator(int timeoutSeconds)
-    : _timeoutSeconds(timeoutSeconds) {}
+FunctionalEvaluator::FunctionalEvaluator(std::shared_ptr<Environment> env, int timeoutSeconds)
+    : _env(std::move(env)), _timeoutSeconds(timeoutSeconds) {
+    if (!_env) {
+        _env = std::make_shared<NativeEnvironment>();
+    }
+}
 
 bool FunctionalEvaluator::evaluate(const std::string& agentOutput, const nlohmann::json& taskConfig) {
     if (!taskConfig.contains("eval_script") || !taskConfig["eval_script"].is_string()) {
@@ -19,16 +24,18 @@ bool FunctionalEvaluator::evaluate(const std::string& agentOutput, const nlohman
         return false;
     }
 
-    std::cout << std::format("  [Eval: Functional] Running test script: {}\n", script);
+    std::cout << std::format("  [Eval: Functional] Running test script in environment: {}\n", script);
 
-    // Thực thi script kiểm thử thực tế trên OS (kiểm tra exit code 0 là PASS)
-    int exitCode = std::system(script.c_str());
+    // Thực thi script kiểm thử thông qua Environment
+    auto execRes = _env->execute(script);
 
-    if (exitCode == 0) {
+    if (execRes.has_value() && execRes->exit_code == 0) {
         std::cout << "  [Eval: Functional] Result: PASS (Exit code 0)\n";
         return true;
     } else {
-        std::cout << std::format("  [Eval: Functional] Result: FAIL (Exit code {})\n", exitCode);
+        int exitCode = execRes.has_value() ? execRes->exit_code : -1;
+        std::string err = execRes.has_value() ? execRes->stderr_text : execRes.error();
+        std::cout << std::format("  [Eval: Functional] Result: FAIL (Exit code {}): {}\n", exitCode, err);
         return false;
     }
 }
@@ -36,9 +43,9 @@ bool FunctionalEvaluator::evaluate(const std::string& agentOutput, const nlohman
 // ==========================================
 // Factory Implementation
 // ==========================================
-std::unique_ptr<Evaluator> EvaluatorFactory::create(const std::string& evalType) {
+std::unique_ptr<Evaluator> EvaluatorFactory::create(const std::string& evalType, std::shared_ptr<Environment> env) {
     if (evalType == "functional") {
-        return std::make_unique<FunctionalEvaluator>();
+        return std::make_unique<FunctionalEvaluator>(std::move(env));
     }
     // Mặc định trả về KeywordEvaluator
     return std::make_unique<KeywordEvaluator>();

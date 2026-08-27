@@ -1,5 +1,6 @@
 #include "harness_runner.h"
 #include "evaluator.h" // Tích hợp Evaluator Strategy & Factory
+#include "../environment/native_environment.h"
 
 #include <iostream>
 #include <fstream>
@@ -37,8 +38,12 @@ BenchmarkTask BenchmarkTask::fromJson(const nlohmann::json& j) {
 // Implementation for HarnessRunner
 // ==========================================
 
-HarnessRunner::HarnessRunner(std::shared_ptr<LLMClient> client, std::string outputDir)
-    : _client(std::move(client)), _outputDir(std::move(outputDir)) {
+HarnessRunner::HarnessRunner(std::shared_ptr<LLMClient> client, std::shared_ptr<Environment> env, std::string outputDir)
+    : _client(std::move(client)), _env(std::move(env)), _outputDir(std::move(outputDir)) {
+    if (!_env) {
+        _env = std::make_shared<NativeEnvironment>();
+    }
+
     // Đảm bảo thư mục lưu trữ kết quả tồn tại
     if (!std::filesystem::exists(_outputDir)) {
         std::filesystem::create_directories(_outputDir);
@@ -76,10 +81,13 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
     std::cout << std::format("Instruction: {}\n", task.instruction);
     std::cout << "======================================================\n";
 
-    // 1. Chạy setup_script nếu có yêu cầu chuẩn bị môi trường/file mẫu
+    // 1. Chạy setup_script qua Environment
     if (!task.setupScript.empty()) {
-        std::cout << std::format("[Setup] Executing: {}\n", task.setupScript);
-        std::system(task.setupScript.c_str());
+        std::cout << std::format("[Environment Setup] Executing: {}\n", task.setupScript);
+        auto setup_res = _env->setup(task.setupScript);
+        if (!setup_res.has_value()) {
+            std::cerr << std::format("[Environment Setup Warning]: {}\n", setup_res.error());
+        }
     }
 
     // 2. Khởi tạo đối tượng Trajectory để lưu vết
@@ -131,8 +139,8 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
                 trajectory.setFinalOutput(*runResult);
                 std::cout << std::format("[HarnessRunner] Agent finished execution.\n");
 
-                // ĐÁNH GIÁ TỰ ĐỘNG BẰNG EVALUATOR STRATEGY
-                auto evaluator = EvaluatorFactory::create(task.evalType);
+                // ĐÁNH GIÁ TỰ ĐỘNG BẰNG EVALUATOR STRATEGY & ENVIRONMENT
+                auto evaluator = EvaluatorFactory::create(task.evalType, _env);
                 
                 nlohmann::json taskConfig;
                 taskConfig["expected_keywords"] = task.expectedKeywords;
@@ -150,7 +158,10 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
         }
     } // workerThread tự động join sạch sẽ tại đây khi kết thúc scope
 
-    // 6. Xuất báo cáo vết thực thi ra file JSON (trajectory_{task_id}.json)
+    // 6. Dọn dẹp môi trường (Teardown)
+    _env->teardown();
+
+    // 7. Xuất báo cáo vết thực thi ra file JSON (trajectory_{task_id}.json)
     std::string exportPath = std::format("{}/trajectory_{}.json", _outputDir, task.id);
     auto exportRes = trajectory.exportToJson(exportPath);
     if (exportRes.has_value()) {
@@ -201,4 +212,12 @@ void HarnessRunner::setOutputDir(const std::string& outputDir) {
     if (!std::filesystem::exists(_outputDir)) {
         std::filesystem::create_directories(_outputDir);
     }
+}
+
+void HarnessRunner::setEnvironment(std::shared_ptr<Environment> env) {
+    _env = std::move(env);
+}
+
+std::shared_ptr<Environment> HarnessRunner::getEnvironment() const {
+    return _env;
 }
