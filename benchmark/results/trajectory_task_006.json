@@ -21,7 +21,7 @@
         },
         "tool": "planning"
       },
-      "latency_ms": 2443,
+      "latency_ms": 3053,
       "observation": "[TaskPlan]\n  • Mục tiêu: Tìm ngày sinh nhật của John\n  • Chiến lược: Sử dụng công cụ memory_search để tìm kiếm thông tin trong bộ nhớ\n  • Kế hoạch chi tiết:\n    1. Gọi công cụ memory_search với từ khóa 'sinh nhật John' [Tool: memory_search]\n",
       "step_number": 0,
       "thought": "Sử dụng công cụ memory_search để tìm kiếm thông tin trong bộ nhớ",
@@ -35,8 +35,8 @@
         },
         "tool": "memory_search"
       },
-      "latency_ms": 1488,
-      "observation": "[Memory #1]\nContent: Sinh nhật của John là ngày 15 tháng 8\nCreated: 2026-08-28 09:21:02\n\n",
+      "latency_ms": 13474,
+      "observation": "[Memory #7]\nContent: Sinh nhật của John là ngày 15 tháng 8\nCreated: 2026-08-28 10:31:35\n\n",
       "step_number": 1,
       "thought": "{ \"type\": \"tool_call\", \"tool\": \"memory_search\", \"args\": { \"query\": \"sinh nhật John\", \"limit\": 1 } }",
       "tokens_used": 0
@@ -49,7 +49,7 @@
         },
         "tool": "finish"
       },
-      "latency_ms": 6516,
+      "latency_ms": 1808,
       "observation": "Completed final answer.",
       "step_number": 2,
       "thought": "{ \"type\": \"response\", \"text\": \"Sinh nhật của John là ngày 15 tháng 8\" }",
@@ -58,6 +58,6 @@
   ],
   "success": true,
   "task_id": "task_006",
-  "total_time_ms": 10450,
+  "total_time_ms": 18338,
   "total_tokens": 0
 }

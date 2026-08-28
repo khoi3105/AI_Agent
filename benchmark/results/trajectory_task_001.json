@@ -11,7 +11,7 @@
         },
         "tool": "calculator"
       },
-      "latency_ms": 1500,
+      "latency_ms": 1436,
       "observation": "4813",
       "step_number": 1,
       "thought": "{ \"type\": \"tool_call\", \"tool\": \"calculator\", \"args\": { \"expression\": \"(125 * 37) + (940 / 5)\" } }",
@@ -25,7 +25,7 @@
         },
         "tool": "finish"
       },
-      "latency_ms": 4798,
+      "latency_ms": 14869,
       "observation": "Completed final answer.",
       "step_number": 2,
       "thought": "{ \"type\": \"response\", \"text\": \"4813\" }",
@@ -34,6 +34,6 @@
   ],
   "success": true,
   "task_id": "task_001",
-  "total_time_ms": 6301,
+  "total_time_ms": 16307,
   "total_tokens": 0
 }

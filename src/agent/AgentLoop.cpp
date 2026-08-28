@@ -377,10 +377,10 @@ void AgentLoop::observe(const std::string& tool_name, const std::expected<std::s
 std::expected<std::string, std::string> AgentLoop::formatFinalResponse(const ToolCallRequest& request) {
     try {
         if (request.args.is_object() && request.args.contains("text")) {
-            return std::format("[4] Tra loi: {}\n", request.args["text"].get<std::string>());
+            return std::format("{}\n", request.args["text"].get<std::string>());
         }
         else if (request.args.is_string()) {
-            return std::format("[4] Tra loi: {}\n", request.args.get<std::string>());
+            return std::format("{}\n", request.args.get<std::string>());
         }
     }
     catch (const nlohmann::json::exception& e) {
@@ -389,7 +389,7 @@ std::expected<std::string, std::string> AgentLoop::formatFinalResponse(const Too
 
     if (!_conversationHistory.empty()) {
         std::string raw_fallback = _conversationHistory.back()["content"].get<std::string>();
-        return std::format("[4] Tra loi: {}\n", raw_fallback);
+        return std::format("{}\n", raw_fallback);
     }
 
     return std::unexpected("[ERROR]: Lịch sử hội thoại rỗng, không thể lấy phản hồi.");

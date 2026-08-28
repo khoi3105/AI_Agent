@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous C++ AI Agent | HCMUS OOP 2026</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Be Vietnam Pro & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Be Vietnam Pro"', 'sans-serif'],
+                        mono: ['"Fira Code"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            dark: '#080c14',
+                            card: '#0f172a',
+                            panel: '#131d35',
+                            border: '#1e293b',
+                            accent: '#38bdf8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #080c14;
+            color: #f1f5f9;
+        }
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080c14;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.12);
+        }
+        /* Chat Bubble Auto Fit Content */
+        .bubble-user {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            width: fit-content;
+            max-width: 80%;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .bubble-agent {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #1e293b;
+            width: fit-content;
+            max-width: 85%;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        /* Collapsible Code Fade */
+        .code-collapsed {
+            max-height: 110px;
+            overflow: hidden;
+            position: relative;
+        }
+        .code-collapsed::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: linear-gradient(to top, rgba(2, 6, 23, 0.95), transparent);
+            pointer-events: none;
+        }
+        .code-expanded {
+            max-height: none;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden select-none">
+
+    <!-- TOP NAVBAR (FIXED HEIGHT) -->
+    <header class="h-16 border-b border-brand-border bg-brand-card/90 backdrop-blur px-6 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <i class="fa-solid fa-robot text-white text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-base text-white tracking-wide">AUTONOMOUS C++ AI AGENT</h1>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">OOP 2026</span>
+                </div>
+                <p class="text-[11px] text-slate-400">ReAct Reasoning Engine • Trường ĐH Khoa học Tự nhiên ĐHQG-HCM</p>
+            </div>
+        </div>
+
+        <!-- Navigation & Settings Header Buttons -->
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950/80 border border-brand-border text-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-slate-400 font-medium">Model:</span>
+                <span id="modelBadge" class="text-cyan-400 font-mono font-semibold">meta/llama-3.2-11b</span>
+            </div>
+
+            <!-- Settings Modal Button -->
+            <button onclick="toggleSettingsModal(true)" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition-all shadow-sm">
+                <i class="fa-solid fa-gear text-cyan-400"></i>
+                <span>Cài Đặt & Gợi Ý</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN BODY (SIDEBAR + 100% AUTO-SCALING VIEWPORT) -->
+    <div class="flex-1 flex overflow-hidden w-full h-[calc(100vh-4rem)]">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="w-56 border-r border-brand-border bg-brand-card/50 flex flex-col justify-between shrink-0 h-full">
+            <div class="p-3 space-y-1">
+                <button onclick="switchTab('chat')" id="tabBtn-chat" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border border-cyan-500/30">
+                    <i class="fa-solid fa-comments text-sm w-4 text-center"></i>
+                    <span>Hội Thoại & ReAct</span>
+                </button>
+                <button onclick="switchTab('benchmark')" id="tabBtn-benchmark" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+                    <i class="fa-solid fa-vial-circle-check text-sm w-4 text-center"></i>
+                    <span>Benchmark (10 Tasks)</span>
+                </button>
+                <button onclick="switchTab('memory')" id="tabBtn-memory" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+                    <i class="fa-solid fa-database text-sm w-4 text-center"></i>
+                    <span>Trí Nhớ SQLite</span>
+                </button>
+                <button onclick="switchTab('tools')" id="tabBtn-tools" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+                    <i class="fa-solid fa-toolbox text-sm w-4 text-center"></i>
+                    <span>Công Cụ (8 Tools)</span>
+                </button>
+            </div>
+
+            <!-- Author & Version Footer -->
+            <div class="p-3 border-t border-brand-border bg-slate-950/40 text-[11px] text-slate-400 space-y-1">
+                <div class="flex items-center justify-between">
+                    <span>Tác giả:</span>
+                    <strong class="text-slate-200">Nhann</strong>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span>Phiên bản:</span>
+                    <span class="text-cyan-400 font-mono">v2.1 (Web GUI)</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- AUTO-SCALING VIEWPORT -->
+        <main class="flex-1 bg-brand-dark p-3 md:p-5 flex flex-col h-full w-full overflow-hidden">
+
+            <!-- ========================================================================= -->
+            <!-- TAB 1: CHAT & LIVE REACT TRACE (AUTO-FIT CONTENT BUBBLES) -->
+            <!-- ========================================================================= -->
+            <div id="tab-chat" class="tab-content h-full w-full flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl">
+                
+                <!-- Chat Header Bar -->
+                <div class="p-3.5 px-6 border-b border-brand-border flex items-center justify-between bg-slate-950/60 shrink-0">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50"></span>
+                        <span class="font-bold text-xs text-slate-200 uppercase tracking-wider">Vết Thực Thi ReAct Thời Gian Thực (Live Stream)</span>
+                    </div>
+                    <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1.5 px-3 py-1 rounded-lg hover:bg-rose-500/10">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                        <span>Xóa nhật ký</span>
+                    </button>
+                </div>
+
+                <!-- Chat Messages & Steps Timeline (SCROLLABLE AREA) -->
+                <div id="chatTimeline" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full flex flex-col">
+                    <!-- Welcome Initial Message -->
+                    <div class="flex gap-3.5 items-start w-full">
+                        <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0 text-cyan-400 shadow-sm">
+                            <i class="fa-solid fa-robot text-xs"></i>
+                        </div>
+                        <div class="flex flex-col items-start space-y-1.5 max-w-[85%]">
+                            <div class="font-semibold text-[11px] text-slate-400">Trợ Lý C++ AI Agent</div>
+                            <div class="bubble-agent p-4 rounded-2xl text-xs md:text-sm leading-relaxed text-slate-200 shadow-md">
+                                Xin chào! Tôi là AI Agent tự trị viết bằng C++. Tôi có thể thực thi các tác vụ tính toán toán học, đọc/ghi file, truy vấn trí nhớ SQLite và tra cứu web theo chu trình suy luận ReAct. Hãy nhập yêu cầu của bạn bên dưới!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input Box (STICKY AT BOTTOM) -->
+                <div class="p-3.5 md:p-4 border-t border-brand-border bg-slate-950/80 shrink-0">
+                    <form onsubmit="handleSend(event)" class="flex gap-3 items-center w-full">
+                        <textarea id="userInput" rows="1" placeholder="Nhập câu hỏi hoặc yêu cầu cho AI Agent (Nhấn Enter để gửi, Shift+Enter xuống dòng)..." 
+                                  onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSend(event); }"
+                                  class="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-brand-border focus:border-cyan-500 focus:outline-none text-xs md:text-sm text-white placeholder-slate-500 resize-none max-h-32 leading-relaxed"></textarea>
+                        <button type="submit" id="sendBtn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 font-semibold text-xs md:text-sm text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all shrink-0">
+                            <span>Gửi Lệnh</span>
+                            <i class="fa-solid fa-paper-plane text-xs"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 2: BENCHMARK SUITE -->
+            <!-- ========================================================================= -->
+            <div id="tab-benchmark" class="tab-content hidden h-full w-full flex flex-col gap-4">
+                <div class="flex items-center justify-between shrink-0 px-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-vial-circle-check text-emerald-400"></i>
+                            <span>Harness Benchmark Suite (10 Tasks)</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Đánh giá tự động toàn diện theo 3 cấp độ (Simple, Medium, Hard)</p>
+                    </div>
+                    <button onclick="runAllBenchmarks()" id="runAllBenchBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Chạy Toàn Bộ 10 Tasks</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col shadow-xl">
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-brand-border sticky top-0 z-10">
+                                <tr>
+                                    <th class="p-3.5 w-24">Task ID</th>
+                                    <th class="p-3.5 w-28">Độ Khó</th>
+                                    <th class="p-3.5">Mô Tả & Chỉ Dẫn</th>
+                                    <th class="p-3.5 w-28">Đánh Giá</th>
+                                    <th class="p-3.5 w-36 text-center">Trạng Thái</th>
+                                    <th class="p-3.5 w-24 text-center">Thực Thi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="benchmarkTableBody" class="divide-y divide-brand-border">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 3: SQLITE MEMORY EXPLORER -->
+            <!-- ========================================================================= -->
+            <div id="tab-memory" class="tab-content hidden h-full w-full flex flex-col gap-4">
+                <div class="flex items-center justify-between shrink-0 px-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-database text-cyan-400"></i>
+                            <span>SQLite Memory Database (memory.db)</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Trí nhớ dài hạn được lưu trữ và truy vấn với thuật toán 2 tầng (Exact + Relevance Scoring)</p>
+                    </div>
+                    <button onclick="loadMemories()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-2 border border-brand-border">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span>Làm mới</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col shadow-xl">
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-950/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-brand-border sticky top-0 z-10">
+                                <tr>
+                                    <th class="p-3.5 w-20">ID</th>
+                                    <th class="p-3.5">Nội Dung Bản Ghi (Memory Content)</th>
+                                    <th class="p-3.5 w-48">Thời Gian Lưu</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memoryTableBody" class="divide-y divide-brand-border">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 4: TOOLS & POLICY HUB -->
+            <!-- ========================================================================= -->
+            <div id="tab-tools" class="tab-content hidden h-full w-full overflow-y-auto space-y-4 px-2">
+                <div class="shrink-0">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-toolbox text-amber-400"></i>
+                        <span>Danh Sách 8 Công Cụ Cốt Lõi (Tool Registry)</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Được kiểm duyệt an toàn tự động bởi ToolPolicy trước khi kích hoạt</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-calculator"></i>
+                            <span>calculator</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Tính toán các biểu thức số học phức tạp thông qua engine toán học ExprTk.</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-terminal"></i>
+                            <span>exec</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Thực thi lệnh shell an toàn, lọc lệnh phá hoại qua Blacklist của ToolPolicy.</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-file-lines"></i>
+                            <span>read_file</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Đọc nội dung file văn bản thuần túy và trích xuất nội dung từ file PDF (Poppler).</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-file-pen"></i>
+                            <span>write_file</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Tạo mới hoặc ghi đè nội dung file dữ liệu ra đĩa cứng theo đường dẫn chỉ định.</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-yellow-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-globe"></i>
+                            <span>web_search</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Tìm kiếm web qua DuckDuckGo và bóc tách HTML tự động bằng thư viện Gumbo.</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-pink-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>memory_save</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Lưu thông tin ghi nhớ lâu dài vào cơ sở dữ liệu SQLite3 bền vững.</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>memory_search</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Tìm kiếm thông tin bộ nhớ 2 tầng (Exact Match + Multi-keyword Relevance Scoring).</p>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-4 space-y-2">
+                        <div class="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                            <i class="fa-solid fa-cloud-sun"></i>
+                            <span>weather</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Tra cứu thông tin thời tiết thời gian thực tại các thành phố qua OpenWeather API.</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SETTINGS & PROMPT SUGGESTIONS MODAL DIALOG -->
+    <!-- ========================================================================= -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brand-card border border-brand-border rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            
+            <!-- Modal Header -->
+            <div class="p-4 px-6 border-b border-brand-border flex items-center justify-between bg-slate-950/60 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    <h3 class="font-bold text-sm text-white">Cài Đặt Suy Luận & Gợi Ý Tác Vụ</h3>
+                </div>
+                <button onclick="toggleSettingsModal(false)" class="text-slate-400 hover:text-white text-base">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 space-y-6 overflow-y-auto flex-1">
+                
+                <!-- Section 1: Parameters -->
+                <div class="space-y-4">
+                    <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">1. Cấu hình Tham Số Suy Luận</h4>
+                    
+                    <div>
+                        <div class="flex justify-between text-xs mb-1.5">
+                            <span class="text-slate-300">Giới Hạn Bước (Max Steps):</span>
+                            <span id="modalMaxStepsVal" class="text-cyan-400 font-bold font-mono text-sm">8</span>
+                        </div>
+                        <input type="range" id="maxStepsInput" min="1" max="20" value="8" 
+                               oninput="document.getElementById('modalMaxStepsVal').innerText = this.value" 
+                               class="w-full accent-cyan-400 cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-brand-border">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-200 block">Adaptive Planning</span>
+                            <span class="text-[11px] text-slate-400">Tự động lập kế hoạch đa bước cho bài toán phức tạp</span>
+                        </div>
+                        <input type="checkbox" id="enablePlanningInput" checked class="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-400 focus:ring-offset-slate-900 cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Section 2: Prompt Suggestions -->
+                <div class="space-y-3 pt-4 border-t border-brand-border">
+                    <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                        <span>2. Gợi Ý Tác Vụ Mẫu Tiếng Việt</span>
+                    </h4>
+                    
+                    <div class="space-y-2 text-xs">
+                        <button onclick="setPromptAndClose('Tính (125 * 37) + (940 / 5) và cho biết kết quả')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">🧮</span>
+                            <div>
+                                <strong class="block text-slate-100">Tính biểu thức số học phức tạp</strong>
+                                <span class="text-[11px] text-slate-400">Gọi công cụ calculator tính chính xác toán học</span>
+                            </div>
+                        </button>
+                        <button onclick="setPromptAndClose('Tạo một file có tên greeting.txt với nội dung là \'Hello OOP AI Agent 2026\'')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">📝</span>
+                            <div>
+                                <strong class="block text-slate-100">Ghi nội dung ra file văn bản</strong>
+                                <span class="text-[11px] text-slate-400">Gọi write_file lưu greeting.txt</span>
+                            </div>
+                        </button>
+                        <button onclick="setPromptAndClose('Hãy ghi nhớ vào bộ nhớ rằng: \'Sinh nhật của John là ngày 15 tháng 8\'')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">💾</span>
+                            <div>
+                                <strong class="block text-slate-100">Lưu thông tin vào bộ nhớ SQLite</strong>
+                                <span class="text-[11px] text-slate-400">Gọi memory_save lưu trí nhớ dài hạn</span>
+                            </div>
+                        </button>
+                        <button onclick="setPromptAndClose('Tìm trong bộ nhớ xem sinh nhật của John là ngày nào và trả lời ngắn gọn')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">🔍</span>
+                            <div>
+                                <strong class="block text-slate-100">Tìm kiếm bộ nhớ và suy luận</strong>
+                                <span class="text-[11px] text-slate-400">Gọi memory_search với thuật toán Relevance Scoring</span>
+                            </div>
+                        </button>
+                        <button onclick="setPromptAndClose('Tìm kiếm trên web xem ai là hiệu trưởng hiện tại của Trường Đại học Khoa học Tự nhiên ĐHQG-HCM')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">🌐</span>
+                            <div>
+                                <strong class="block text-slate-100">Tìm kiếm thông tin trên Web</strong>
+                                <span class="text-[11px] text-slate-400">Gọi web_search tra cứu DuckDuckGo</span>
+                            </div>
+                        </button>
+                        <button onclick="setPromptAndClose('Tìm kiếm thông tin năm phát hành chuẩn C++23. Sau khi có kết quả, lưu ghi chú này vào memory và đồng thời tạo file \'cpp23_note.txt\' chứa năm đó.')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">⚡</span>
+                            <div>
+                                <strong class="block text-slate-100">Pipeline Đa Bước: Web → Memory → File</strong>
+                                <span class="text-[11px] text-slate-400">Chuỗi hành động phức tạp tự động</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 px-6 border-t border-brand-border bg-slate-950/60 flex justify-end shrink-0">
+                <button onclick="toggleSettingsModal(false)" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all shadow-md">
+                    Áp Dụng & Đóng
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Modal Control
+        function toggleSettingsModal(show) {
+            const modal = document.getElementById('settingsModal');
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function setPromptAndClose(text) {
+            document.getElementById('userInput').value = text;
+            toggleSettingsModal(false);
+            switchTab('chat');
+            document.getElementById('userInput').focus();
+        }
+
+        // Tab Navigation
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-gradient-to-r', 'from-cyan-500/20', 'to-transparent', 'text-cyan-400', 'border', 'border-cyan-500/30');
+                el.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tabBtn-${tabId}`);
+            activeBtn.classList.add('bg-gradient-to-r', 'from-cyan-500/20', 'to-transparent', 'text-cyan-400', 'border', 'border-cyan-500/30');
+            activeBtn.classList.remove('text-slate-400');
+
+            if (tabId === 'benchmark') loadTasks();
+            if (tabId === 'memory') loadMemories();
+        }
+
+        function clearChat() {
+            document.getElementById('chatTimeline').innerHTML = `
+                <div class="flex gap-3.5 items-start w-full">
+                    <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0 text-cyan-400 shadow-sm">
+                        <i class="fa-solid fa-robot text-xs"></i>
+                    </div>
+                    <div class="flex flex-col items-start space-y-1.5 max-w-[85%]">
+                        <div class="font-semibold text-[11px] text-slate-400">Trợ Lý C++ AI Agent</div>
+                        <div class="bubble-agent p-4 rounded-2xl text-xs md:text-sm leading-relaxed text-slate-200 shadow-md">
+                            Nhật ký hội thoại đã được làm mới. Hãy nhập yêu cầu của bạn bên dưới!
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Toggle Expand/Collapse for Long JSON and Long Observation Text
+        function toggleCodeBlock(btnId, targetId) {
+            const el = document.getElementById(targetId);
+            const btn = document.getElementById(btnId);
+            if (el.classList.contains('code-collapsed')) {
+                el.classList.remove('code-collapsed');
+                el.classList.add('code-expanded');
+                btn.innerHTML = `<i class="fa-solid fa-chevron-up mr-1"></i> Thu gọn`;
+            } else {
+                el.classList.add('code-collapsed');
+                el.classList.remove('code-expanded');
+                btn.innerHTML = `<i class="fa-solid fa-chevron-down mr-1"></i> Mở rộng xem toàn bộ`;
+            }
+        }
+
+        // Handle SSE Chat Stream
+        async function handleSend(e) {
+            if (e) e.preventDefault();
+            const input = document.getElementById('userInput');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            input.value = '';
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Đang xử lý</span>`;
+
+            const timeline = document.getElementById('chatTimeline');
+
+            // 1. Append User Message (Scales dynamically fit to message length up to 80% width)
+            timeline.innerHTML += `
+                <div class="flex gap-3 items-start justify-end w-full">
+                    <div class="bubble-user p-3.5 md:p-4 rounded-2xl rounded-tr-sm text-xs md:text-sm text-white leading-relaxed shadow-lg whitespace-pre-wrap">
+                        ${escapeHtml(prompt)}
+                    </div>
+                    <div class="w-8 h-8 rounded-xl bg-cyan-600 flex items-center justify-center shrink-0 text-white shadow-md shadow-cyan-600/30">
+                        <i class="fa-solid fa-user text-xs"></i>
+                    </div>
+                </div>
+            `;
+            timeline.scrollTop = timeline.scrollHeight;
+
+            // 2. Prepare Agent Container
+            const agentTurnId = 'turn-' + Date.now();
+            timeline.innerHTML += `
+                <div id="${agentTurnId}" class="flex gap-3 items-start w-full">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 shadow-sm">
+                        <i class="fa-solid fa-microchip text-xs"></i>
+                    </div>
+                    <div class="flex flex-col items-start space-y-3 steps-container max-w-[85%]">
+                        <div class="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
+                            <span>Vết suy luận ReAct</span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            timeline.scrollTop = timeline.scrollHeight;
+
+            const stepsContainer = document.querySelector(`#${agentTurnId} .steps-container`);
+            const maxSteps = parseInt(document.getElementById('maxStepsInput').value);
+            const enablePlanning = document.getElementById('enablePlanningInput').checked;
+
+            try {
+                const response = await fetch('/api/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, max_steps: maxSteps, enable_planning: enablePlanning })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        const eventMatch = line.match(/^event: (.*)$/m);
+                        const dataMatch = line.match(/^data: (.*)$/m);
+
+                        if (eventMatch && dataMatch) {
+                            const eventType = eventMatch[1];
+                            const data = JSON.parse(dataMatch[1]);
+
+                            if (eventType === 'step') {
+                                renderStepCard(stepsContainer, data);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'final') {
+                                renderFinalAnswer(stepsContainer, data.output, data.success);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                renderFinalAnswer(stepsContainer, `Lỗi kết nối tới C++ Web Server: ${err.message}`, false);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<span>Gửi Lệnh</span><i class="fa-solid fa-paper-plane text-xs"></i>`;
+            }
+        }
+
+        // Render Step Cards with Auto-fit Content Width
+        let blockCounter = 0;
+
+        function renderStepCard(container, step) {
+            blockCounter++;
+            const card = document.createElement('div');
+            card.className = 'p-3.5 md:p-4 rounded-xl bg-slate-900/90 border border-brand-border space-y-2.5 text-xs shadow-md transition-all w-fit max-w-full';
+            
+            let html = `
+                <div class="flex items-center justify-between text-slate-400 font-mono text-[11px] gap-6">
+                    <span class="font-bold text-cyan-400 flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                        <span>Bước ${step.stepNumber}</span>
+                    </span>
+                    <span class="text-slate-500">${step.latencyMs} ms</span>
+                </div>
+            `;
+
+            // 1. Thought
+            if (step.thought) {
+                html += `
+                    <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 leading-relaxed whitespace-pre-wrap break-words w-fit max-w-full">
+                        <strong class="text-amber-400 block mb-1 text-[11px] uppercase tracking-wider">Thought:</strong>
+                        ${escapeHtml(step.thought)}
+                    </div>
+                `;
+            }
+
+            // 2. Action / Tool Call (Collapsible if long JSON)
+            if (step.toolName && step.toolName !== 'finish') {
+                const argsStr = JSON.stringify(step.toolArgs, null, 2) || '{}';
+                const isLong = argsStr.split('\n').length > 5 || argsStr.length > 200;
+                const blockId = `code-block-${blockCounter}`;
+                const btnId = `btn-block-${blockCounter}`;
+
+                html += `
+                    <div class="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-200 w-fit max-w-full">
+                        <div class="flex items-center justify-between font-mono font-bold text-cyan-400 mb-1.5 text-[11px] gap-4">
+                            <span>Gọi Công Cụ: <u class="text-white">${step.toolName}</u></span>
+                            ${isLong ? `<button type="button" id="${btnId}" onclick="toggleCodeBlock('${btnId}', '${blockId}')" class="text-[10px] text-cyan-400 hover:text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/30 transition-all"><i class="fa-solid fa-chevron-down mr-1"></i> Mở rộng xem toàn bộ</button>` : ''}
+                        </div>
+                        <div id="${blockId}" class="${isLong ? 'code-collapsed' : ''}">
+                            <pre class="code-font text-[11px] bg-slate-950 p-2.5 rounded-md overflow-x-auto text-slate-300 leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(argsStr)}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 3. Observation (Collapsible if long text)
+            if (step.observation) {
+                blockCounter++;
+                const obsStr = step.observation;
+                const isLongObs = obsStr.split('\n').length > 6 || obsStr.length > 350;
+                const obsBlockId = `obs-block-${blockCounter}`;
+                const obsBtnId = `btn-obs-${blockCounter}`;
+
+                html += `
+                    <div class="p-3 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300 w-fit max-w-full">
+                        <div class="flex items-center justify-between mb-1.5 gap-4">
+                            <strong class="text-slate-400 block text-[11px] uppercase tracking-wider">Observation:</strong>
+                            ${isLongObs ? `<button type="button" id="${obsBtnId}" onclick="toggleCodeBlock('${obsBtnId}', '${obsBlockId}')" class="text-[10px] text-slate-400 hover:text-slate-200 bg-slate-900 px-2 py-0.5 rounded border border-slate-700 transition-all"><i class="fa-solid fa-chevron-down mr-1"></i> Mở rộng xem toàn bộ</button>` : ''}
+                        </div>
+                        <div id="${obsBlockId}" class="${isLongObs ? 'code-collapsed' : ''}">
+                            <div class="code-font text-[11px] whitespace-pre-wrap break-words text-slate-300 leading-relaxed">${escapeHtml(obsStr)}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = html;
+            container.appendChild(card);
+        }
+
+        // Render Final Output (Auto-fit Content Width)
+        function renderFinalAnswer(container, text, success) {
+            const div = document.createElement('div');
+            div.className = `p-4 md:p-5 rounded-2xl ${success ? 'bg-gradient-to-br from-emerald-950/70 to-slate-900 border border-emerald-500/40 text-emerald-100' : 'bg-rose-950/70 border border-rose-500/40 text-rose-100'} text-xs md:text-sm leading-relaxed space-y-2 mt-2 shadow-xl break-words whitespace-pre-wrap w-fit max-w-full`;
+            div.innerHTML = `
+                <div class="font-bold flex items-center gap-2 ${success ? 'text-emerald-400' : 'text-rose-400'} text-xs uppercase tracking-wider">
+                    <i class="fa-solid ${success ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>
+                    <span>${success ? 'KẾT QUẢ CUỐI CÙNG' : 'LỖI THỰC THI'}</span>
+                </div>
+                <div class="whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(text)}</div>
+            `;
+            container.appendChild(div);
+        }
+
+        // Load Benchmark Tasks
+        async function loadTasks() {
+            try {
+                const res = await fetch('/api/tasks');
+                const tasks = await res.json();
+                const tbody = document.getElementById('benchmarkTableBody');
+                tbody.innerHTML = '';
+
+                tasks.forEach(t => {
+                    const diffBadge = t.difficulty === 'simple' 
+                        ? '<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-semibold text-[11px]">Simple</span>'
+                        : (t.difficulty === 'medium'
+                            ? '<span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-semibold text-[11px]">Medium</span>'
+                            : '<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 font-semibold text-[11px]">Hard</span>');
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-900/60 transition-colors" id="row-${t.id}">
+                            <td class="p-3.5 font-mono font-bold text-cyan-400">${t.id}</td>
+                            <td class="p-3.5">${diffBadge}</td>
+                            <td class="p-3.5">
+                                <div class="font-semibold text-slate-200">${escapeHtml(t.description || '')}</div>
+                                <div class="text-slate-400 text-[11px] mt-0.5 whitespace-pre-wrap break-words">${escapeHtml(t.instruction)}</div>
+                            </td>
+                            <td class="p-3.5 font-mono text-slate-400 text-[11px]">${t.eval_type}</td>
+                            <td class="p-3.5 text-center" id="status-${t.id}">
+                                <span class="text-slate-500">Chưa chạy</span>
+                            </td>
+                            <td class="p-3.5 text-center">
+                                <button onclick="runSingleBenchmark('${t.id}')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-cyan-600 hover:text-white text-slate-300 text-xs font-semibold transition-all">
+                                    <i class="fa-solid fa-play mr-1"></i> Chạy
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function runSingleBenchmark(taskId) {
+            const statusEl = document.getElementById(`status-${taskId}`);
+            statusEl.innerHTML = `<span class="text-amber-400 animate-pulse text-[11px]"><i class="fa-solid fa-spinner animate-spin"></i> Đang chạy...</span>`;
+
+            try {
+                const res = await fetch('/api/benchmark/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId })
+                });
+                const data = await res.json();
+                const r = data[0];
+                if (r.success) {
+                    statusEl.innerHTML = `<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold font-mono text-[11px]">PASS (${r.totalTimeMs}ms)</span>`;
+                } else {
+                    statusEl.innerHTML = `<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 font-bold font-mono text-[11px]">FAIL</span>`;
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<span class="text-rose-400 font-bold font-mono text-[11px]">ERROR</span>`;
+            }
+        }
+
+        async function runAllBenchmarks() {
+            const btn = document.getElementById('runAllBenchBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i><span>Đang Đánh Giá Batch...</span>`;
+
+            try {
+                const res = await fetch('/api/benchmark/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: 'all' })
+                });
+                const data = await res.json();
+                data.forEach(r => {
+                    const statusEl = document.getElementById(`status-${r.taskId}`);
+                    if (statusEl) {
+                        if (r.success) {
+                            statusEl.innerHTML = `<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold font-mono text-[11px]">PASS (${r.totalTimeMs}ms)</span>`;
+                        } else {
+                            statusEl.innerHTML = `<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 font-bold font-mono text-[11px]">FAIL</span>`;
+                        }
+                    }
+                });
+            } catch (err) {
+                alert('Lỗi chạy benchmark: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-play"></i><span>Chạy Toàn Bộ 10 Tasks</span>`;
+            }
+        }
+
+        // Load SQLite Memories
+        async function loadMemories() {
+            try {
+                const res = await fetch('/api/memories');
+                const memories = await res.json();
+                const tbody = document.getElementById('memoryTableBody');
+                tbody.innerHTML = '';
+
+                if (memories.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="p-8 text-center text-slate-500">Chưa có bản ghi nào trong database.</td></tr>`;
+                    return;
+                }
+
+                memories.forEach(m => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-900/60 transition-colors">
+                            <td class="p-3.5 font-mono font-bold text-cyan-400">${m.id}</td>
+                            <td class="p-3.5 text-slate-200 whitespace-pre-wrap break-words">${escapeHtml(m.content)}</td>
+                            <td class="p-3.5 text-slate-400 font-mono text-[11px]">${m.created_at || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
