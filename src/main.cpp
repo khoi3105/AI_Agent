@@ -15,7 +15,7 @@
 #include "environment/sandbox_environment.h"
 #include "utils/env_utils.h"
 #include "harness/harness_runner.h"
-#include "../config/config.h"
+#include "config/config.h"
 
 using namespace std;
 

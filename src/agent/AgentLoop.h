@@ -15,7 +15,7 @@
 #include "loop_detector.h"
 #include "skill_loader.h"
 #include "../tools/tool_registry.h"
-#include "../../config/config.h"
+#include "../config/config.h"
 
 
 class AgentLoop {
