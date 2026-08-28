@@ -1,1 +1,15 @@
-PORT=8080
+
+[llm]
+base_url=https://integrate.api.nvidia.com/v1/chat/completions
+model=meta/llama-3.2-11b-vision-instruct
+temperature=0.1
+top_p=1.0
+max_tokens=16384
+stream=false
+
+[agent]
+max_step=5
+
+[http]
+post_timeout=60
+get_timeout=10

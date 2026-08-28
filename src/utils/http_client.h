@@ -3,7 +3,7 @@
 #include <vector>
 #include <expected>
 #include <map>
-
+#include "../../config/config.h"
 namespace agent::utils {
 
 class HttpClient {
@@ -13,14 +13,14 @@ public:
         const std::string& url, 
         const std::string& json_payload,
         const std::vector<std::string>& extra_headers = {},
-        long timeout_seconds = 60
+        long timeout_seconds = Config::instance()->http().postTimeout
     );
 
     // Hàm GET tiện ích cho Search Tool
     static std::expected<std::string, std::string> get(
         const std::string& url,
         const std::vector<std::string>& extra_headers = {},
-        long timeout_seconds = 10
+        long timeout_seconds = Config::instance()->http().getTimeout
     );
 };
 

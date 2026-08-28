@@ -15,13 +15,16 @@
 #include "environment/sandbox_environment.h"
 #include "utils/env_utils.h"
 #include "harness/harness_runner.h"
+#include "../config/config.h"
 
 using namespace std;
 
 int main(int argc, char* argv[]) {
     // 1. Khai báo thông tin API
-    string model = "meta/llama-3.2-11b-vision-instruct";
-    string base_url = "https://integrate.api.nvidia.com/v1/chat/completions";
+    // string model = "meta/llama-3.2-11b-vision-instruct";
+    // string base_url = "https://integrate.api.nvidia.com/v1/chat/completions";
+    string model = Config::instance()->llm().model;
+    string base_url = Config::instance()->llm().baseUrl;
     string api_key = getEnvVar("LLAMA_API_KEY");
 
     // 2. Khởi tạo LLM Client (Sử dụng con trỏ Lớp cơ sở - Abstraction)

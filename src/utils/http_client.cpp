@@ -1,6 +1,5 @@
 #include "http_client.h"
 #include <curl/curl.h>
-
 namespace agent::utils {
 
 static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {

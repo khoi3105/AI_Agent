@@ -15,6 +15,7 @@
 #include "loop_detector.h"
 #include "skill_loader.h"
 #include "../tools/tool_registry.h"
+#include "../../config/config.h"
 
 
 class AgentLoop {
@@ -22,7 +23,7 @@ protected:
     nlohmann::json _conversationHistory;
     LoopDetector _loopdetector;
     SkillLoader _skillLoader;
-    int _maxstep{5};
+    int _maxstep = Config::instance()->agent().maxStep;;
 
 public:
     // Khai báo Callback Hook kiểu Observer

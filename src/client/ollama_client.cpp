@@ -2,13 +2,13 @@
 #include "../utils/base64_encoder.h"
 #include "../tools/tool_registry.h"
 #include "../utils/http_client.h"
+#include "../../config/config.h"
 #include <iostream>
 #include <memory>
 
 using namespace std;
 
 std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& message, const std::vector<std::string>& image_paths) {
-
     // Nếu có danh sách ảnh, tiến hành chèn ảnh vào tin nhắn của user
     // std::cout << "[DEBUG] image_paths size = " << image_paths.size() << std::endl;
     if (!image_paths.empty()) {
@@ -62,10 +62,10 @@ std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& messa
     nlohmann::json payload = {
         {"model", _modelName},
         {"messages", message},
-        {"temperature", 0.1},
-        {"top_p", 1.0},
-        {"max_tokens", 16384},
-        {"stream", false}
+        {"temperature", Config::instance()->llm().temperature},
+        {"top_p", Config::instance()->llm().topP},
+        {"max_tokens", Config::instance()->llm().maxTokens},
+        {"stream", Config::instance()->llm().stream}
     };
     
     // 1. Chuẩn bị custom headers chứa API Key

@@ -1,5 +1,5 @@
 #include "memory_save_tool.h"
-
+#include "../../../config/config.h"
 #include <stdexcept>
 
 MemorySaveTool::MemorySaveTool() : _db(nullptr) {
