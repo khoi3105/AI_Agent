@@ -45,6 +45,7 @@ target_link_libraries(main PRIVATE
     SQLite::SQLite3          # Target SQLite3 chính thức của CMake
     ${POPPLER_LIBRARIES}
     ${GUMBO_LIBRARIES}        # Thư viện Gumbo
+    xdo                      # Thư viện libxdo điều khiển GUI (mouse/keyboard)
 )
 
 # Precompiled headers

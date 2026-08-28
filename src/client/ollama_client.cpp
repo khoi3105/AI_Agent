@@ -8,40 +8,49 @@
 using namespace std;
 
 std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& message, const std::vector<std::string>& image_paths) {
+    // 1. Tạo bản sao payload messages để không làm thay đổi trực tiếp conversationHistory
+    nlohmann::json messages_payload = message;
 
-    // Nếu có danh sách ảnh, tiến hành chèn ảnh vào tin nhắn của user
-    // std::cout << "[DEBUG] image_paths size = " << image_paths.size() << std::endl;
+    // 2. Nếu có danh sách ảnh, chèn ảnh vào tin nhắn user CUỐI CÙNG (tin nhắn mới nhất)
     if (!image_paths.empty()) {
-        // 1. Tìm phần tử tin nhắn của User trong mảng message (thường là phần tử có "role": "user")
         nlohmann::json* user_msg_ptr = nullptr;
-        for (auto& msg : message) {
-            if (msg.contains("role") && msg["role"] == "user") {
-                user_msg_ptr = &msg;
+        for (auto it = messages_payload.rbegin(); it != messages_payload.rend(); ++it) {
+            if (it->contains("role") && (*it)["role"] == "user") {
+                user_msg_ptr = &(*it);
                 break;
             }
         }
 
-        // Nếu tìm thấy tin nhắn user, thực hiện biến đổi content sang dạng multimodal array
         if (user_msg_ptr != nullptr) {
             std::string original_text = "";
-            if (user_msg_ptr->contains("content") && (*user_msg_ptr)["content"].is_string()) {
-                original_text = (*user_msg_ptr)["content"].get<std::string>();
+            if (user_msg_ptr->contains("content")) {
+                if ((*user_msg_ptr)["content"].is_string()) {
+                    original_text = (*user_msg_ptr)["content"].get<std::string>();
+                } else if ((*user_msg_ptr)["content"].is_array()) {
+                    for (const auto& item : (*user_msg_ptr)["content"]) {
+                        if (item.contains("type") && item["type"] == "text" && item.contains("text")) {
+                            original_text = item["text"].get<std::string>();
+                            break;
+                        }
+                    }
+                }
             }
 
             // Mảng content chứa text + images theo chuẩn OpenAI / NIM API
             nlohmann::json content_array = nlohmann::json::array();
-
-            // Push prompt text hiện tại
             content_array.push_back({
                 {"type", "text"},
                 {"text", original_text}
             });
 
-            // Push từng ảnh đã encode Base64
             for (const auto& img_path : image_paths) {
                 auto b64_result = Base64Encoder::encodeFile(img_path);
                 if (b64_result.has_value()) {
-                    std::string base64_url = "data:image/jpeg;base64," + b64_result.value();
+                    std::string mime = "image/png";
+                    if (img_path.ends_with(".jpg") || img_path.ends_with(".jpeg")) {
+                        mime = "image/jpeg";
+                    }
+                    std::string base64_url = "data:" + mime + ";base64," + b64_result.value();
                     content_array.push_back({
                         {"type", "image_url"},
                         {"image_url", {
@@ -49,22 +58,20 @@ std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& messa
                         }}
                     });
                 } else {
-                    // Trả về lỗi nếu đọc/mã hóa file ảnh thất bại
                     return std::unexpected(b64_result.error());
                 }
             }
 
-            // Gán lại content đã được cập nhật thành mảng cho tin nhắn user
             (*user_msg_ptr)["content"] = content_array;
         }
     }
 
     nlohmann::json payload = {
         {"model", _modelName},
-        {"messages", message},
+        {"messages", messages_payload},
         {"temperature", 0.1},
         {"top_p", 1.0},
-        {"max_tokens", 16384},
+        {"max_tokens", 4096},
         {"stream", false}
     };
     
@@ -74,28 +81,24 @@ std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& messa
         headers.push_back("Authorization: Bearer " + _APIKey);
     }
 
-    // 2. Gửi request qua HttpClient (1 DÒNG DUY NHẤT!)
-    auto http_res = agent::utils::HttpClient::postJson(_baseURL, payload.dump(), headers);
+    // 2. Gửi request qua HttpClient (Timeout 120s)
+    auto http_res = agent::utils::HttpClient::postJson(_baseURL, payload.dump(), headers, 120);
 
     if (!http_res.has_value()) {
         return std::unexpected(http_res.error());
     }
 
     std::string response_string = http_res.value();
-    // cout << response_string << endl;
 
-    // 6. Parse JSON Response và bắt lỗi định dạng
+    // 3. Parse JSON Response và trích xuất câu trả lời
     try {
         auto response_json = nlohmann::json::parse(response_string);
 
-        // Kiểm tra xem trường dữ liệu mong muốn có tồn tại không
         if (!response_json.contains("choices") || response_json["choices"].empty()) {
             return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
         }
 
         std::string message_str = response_json["choices"][0]["message"]["content"];
-        
-        // Thành công: Trả về trực tiếp chuỗi kết quả
         return message_str; 
 
     } catch (const nlohmann::json::exception& e) {

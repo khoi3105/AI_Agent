@@ -8,6 +8,7 @@
 
 // Include các file header trong dự án
 #include "agent/AgentLoop.h"
+#include "agent/gui_agent_loop.h"
 #include "client/llm_client.h"
 #include "client/ollama_client.h"
 #include "environment/environment.h"
@@ -25,18 +26,24 @@ int main(int argc, char* argv[]) {
     string api_key = getEnvVar("LLAMA_API_KEY");
 
     // 2. Khởi tạo LLM Client (Sử dụng con trỏ Lớp cơ sở - Abstraction)
-    cout << "[1] Dang khoi tao LLM Client..." << endl;
+    cout << "[1] Dang khoi tao LLM Client (Multimodal VLM)..." << endl;
     shared_ptr<LLMClient> client = make_shared<OllamaClient>(model, base_url, api_key);
 
     // 3. Khởi tạo Môi trường thực thi (Environment Abstraction: Native hoặc Sandbox)
     shared_ptr<Environment> env = make_shared<NativeEnvironment>();
 
     // =========================================================================
-    // CHẾ ĐỘ 1: CHẠY BENCHMARK HARNESS TỰ ĐỘNG
+    // LỰA CHỌN CHẾ ĐỘ CHẠY:
+    // 1: BENCHMARK HARNESS
+    // 2: AGENT TEXT REACT THÔNG THƯỜNG
+    // 3: GUI AGENT DEMO (Tự động chụp màn hình, phân tích UI, click/type/press)
     // =========================================================================
-    bool run_benchmark_mode = false; // Đặt false nếu muốn chạy tương tác 1 câu lẻ bên dưới
+    string mode = "gui"; // Mặc định chạy GUI Agent hoặc đọc từ argv
+    if (argc > 1) {
+        mode = argv[1];
+    }
 
-    if (run_benchmark_mode) {
+    if (mode == "benchmark") {
         cout << "\n======================================================\n";
         cout << "           KHOI DONG BENCHMARK EVALUATION             \n";
         cout << "======================================================\n";
@@ -61,7 +68,34 @@ int main(int argc, char* argv[]) {
 
         cout << "\n-> Tat ca file log chi tiet da duoc luu tai: benchmark/results/\n";
         return 0;
-    } else {
+    } 
+    else if (mode == "gui") {
+        // =========================================================================
+        // CHẾ ĐỘ 3: GUI AGENT DEMO (TÍNH NĂNG 10.1: +8đ)
+        // =========================================================================
+        cout << "\n======================================================\n";
+        cout << "     KHOI DONG GUI AGENT (SCREENSHOT + ACTION)        \n";
+        cout << "======================================================\n";
+
+        string gui_task = "Quan sát màn hình Desktop hiện tại, mở terminal hoặc trình duyệt web, tìm kiếm thông tin về 'Trường Đại học Khoa học Tự nhiên ĐHQG-HCM', sao chép và tổng kết kết quả.";
+        if (argc > 2) {
+            gui_task = argv[2];
+        }
+
+        cout << "[Task]: \"" << gui_task << "\"\n\n";
+
+        GUIAgentLoop gui_agent(8, "/tmp/agent_screenshot.png");
+        gui_agent.setActionDelayMs(1000); // 1s giữa các thao tác
+
+        auto result = gui_agent.run(gui_task, client);
+        if (result.has_value()) {
+            cout << "\n[Ket qua GUI Agent]:\n" << result.value() << endl;
+        } else {
+            cerr << "\n[Loi GUI Agent]: " << result.error() << endl;
+        }
+        return 0;
+    }
+    else {
         // =========================================================================
         // CHẾ ĐỘ 2: CHẠY TƯƠNG TÁC THỦ CÔNG (SINGLE RUN)
         // =========================================================================
