@@ -3,7 +3,7 @@
 #include <vector>
 #include <expected>
 #include <map>
-#include "../../config/config.h"
+#include "../config/config.h"
 namespace agent::utils {
 
 class HttpClient {

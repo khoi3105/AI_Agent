@@ -1,15 +1,14 @@
-
 [llm]
-base_url=https://integrate.api.nvidia.com/v1/chat/completions
-model=meta/llama-3.2-11b-vision-instruct
-temperature=0.1
-top_p=1.0
-max_tokens=16384
-stream=false
+BASE_URL=https://integrate.api.nvidia.com/v1/chat/completions
+MODEL=meta/llama-3.2-11b-vision-instruct
+TEMPERATURE=0.1
+TOP_P=1.0
+MAX_TOKENS=16384
+STREAM=false
 
 [agent]
-max_step=5
+MAX_STEP=5
 
 [http]
-post_timeout=60
-get_timeout=10
+POST_TIMEOUT=60
+GET_TIMEOUT=10

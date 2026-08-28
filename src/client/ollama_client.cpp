@@ -2,7 +2,7 @@
 #include "../utils/base64_encoder.h"
 #include "../tools/tool_registry.h"
 #include "../utils/http_client.h"
-#include "../../config/config.h"
+#include "../config/config.h"
 #include <iostream>
 #include <memory>
 
