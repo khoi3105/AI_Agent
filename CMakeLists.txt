@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25) # Đảm bảo CMake đủ mới để hỗ trợ C++26 tốt
+cmake_minimum_required(VERSION 3.25)
 
 # Tên dự án
 project(MyAgentProject CXX)
@@ -8,16 +8,18 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Tìm PkgConfig (dùng để tìm poppler-cpp và gumbo)
+# Tìm PkgConfig (dùng để tìm poppler-cpp, gumbo, glfw3)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(POPPLER REQUIRED poppler-cpp)
-pkg_check_modules(GUMBO REQUIRED gumbo) # Thêm Gumbo qua PkgConfig
+pkg_check_modules(GUMBO REQUIRED gumbo)
+pkg_check_modules(GLFW QUIET glfw3)
 
-# Tìm thư viện libcurl và SQLite3 trên hệ thống
+# Tìm thư viện libcurl, SQLite3, OpenGL trên hệ thống
 find_package(CURL REQUIRED)
-find_package(SQLite3 REQUIRED) # Thêm SQLite3 (CMake hỗ trợ sẵn)
+find_package(SQLite3 REQUIRED)
+find_package(OpenGL REQUIRED)
 
-# Gom tất cả các file .cpp từ các thư mục con lại
+# Gom tất cả các file .cpp từ các thư mục con lại (kèm Server, GUI & ImGui)
 file(GLOB_RECURSE SOURCES
     "src/client/*.cpp"
     "src/main.cpp"
@@ -27,6 +29,9 @@ file(GLOB_RECURSE SOURCES
     "src/harness/*.cpp"
     "src/environment/*.cpp"
     "src/config/*.cpp"
+    "src/gui/*.cpp"
+    "src/gui/imgui/*.cpp"
+    "src/server/*.cpp"
 )
 
 # Tạo file thực thi build/main từ danh sách SOURCES
@@ -35,17 +40,25 @@ add_executable(main ${SOURCES})
 # Thêm thư mục include cho các header file
 target_include_directories(main PRIVATE 
     src
+    src/gui/imgui
+    src/server
     ${POPPLER_INCLUDE_DIRS}
-    ${GUMBO_INCLUDE_DIRS}     # Include headers của Gumbo
-    ${SQLITE3_INCLUDE_DIRS}   # Include headers của SQLite3
+    ${GUMBO_INCLUDE_DIRS}
+    ${SQLITE3_INCLUDE_DIRS}
+    ${GLFW_INCLUDE_DIRS}
+    ${OPENGL_INCLUDE_DIR}
 )
 
 # Liên kết với các thư viện
 target_link_libraries(main PRIVATE 
     CURL::libcurl
-    SQLite::SQLite3          # Target SQLite3 chính thức của CMake
+    SQLite::SQLite3
+    OpenGL::GL
     ${POPPLER_LIBRARIES}
-    ${GUMBO_LIBRARIES}        # Thư viện Gumbo
+    ${GUMBO_LIBRARIES}
+    glfw
+    dl
+    pthread
 )
 
 # Precompiled headers
@@ -54,8 +67,8 @@ target_precompile_headers(main PRIVATE
     <vector>
     <string>
     <curl/curl.h>
-    <poppler-document.h> # Thêm header poppler vào precompiled headers
-    <sqlite3.h>          # Thêm header sqlite3 (tùy chọn nhưng giúp compile nhanh hơn)
-    <gumbo.h>            # Thêm header gumbo (tùy chọn)
-    "src/utils/exprtk.hpp" # Đường dẫn tương đối tới file exprtk.hpp của bạn
+    <poppler-document.h>
+    <sqlite3.h>
+    <gumbo.h>
+    "src/utils/exprtk.hpp"
 )
