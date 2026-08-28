@@ -18,19 +18,21 @@
 #include "../tools/tool_registry.h"
 #include "../tools/tool_policy.h"
 #include "../environment/environment.h"
+#include "../config/config.h"
+
 
 class AgentLoop {
 protected:
     nlohmann::json _conversationHistory;
     LoopDetector _loopdetector;
     SkillLoader _skillLoader;
-    int _maxstep{5};
     bool _enablePlanning{true}; // Cờ bật/tắt vòng đầu suy nghĩ (TaskPlan)
 
     // Dependency Injection
     std::shared_ptr<ToolRegistry> _registry;
     std::shared_ptr<ToolPolicy> _toolPolicy;
     std::shared_ptr<Environment> _env;
+    int _maxstep = Config::instance()->agent().maxStep;;
 
 public:
     // Khai báo Callback Hook kiểu Observer
