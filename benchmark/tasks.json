@@ -6,7 +6,8 @@
     "instruction": "Hãy tính kết quả của biểu thức sau: (125 * 37) + (940 / 5). Chỉ trả về kết quả.",
     "eval_type": "keyword",
     "expected_keywords": ["4813"],
-    "max_steps": 5
+    "max_steps": 5,
+    "timeout_seconds": 45
   },
   {
     "id": "task_002",
@@ -15,7 +16,8 @@
     "instruction": "Tạo một file có tên 'greeting.txt' với nội dung là 'Hello OOP AI Agent 2026'.",
     "eval_type": "functional",
     "eval_script": "test -f greeting.txt && grep -q 'Hello OOP AI Agent 2026' greeting.txt && echo PASS",
-    "max_steps": 5
+    "max_steps": 5,
+    "timeout_seconds": 45
   },
   {
     "id": "task_003",
@@ -25,7 +27,8 @@
     "setup_script": "echo 'PORT=8080' > config.txt",
     "eval_type": "keyword",
     "expected_keywords": ["8080"],
-    "max_steps": 5
+    "max_steps": 5,
+    "timeout_seconds": 45
   },
   {
     "id": "task_004",
@@ -34,9 +37,9 @@
     "instruction": "Hãy ghi nhớ vào bộ nhớ rằng: 'Sinh nhật của John là ngày 15 tháng 8'.",
     "eval_type": "keyword",
     "expected_keywords": ["thành công", "lưu", "đã ghi nhớ", "saved"],
-    "max_steps": 5
+    "max_steps": 5,
+    "timeout_seconds": 45
   },
-
   {
     "id": "task_005",
     "difficulty": "medium",
@@ -44,7 +47,8 @@
     "instruction": "Tính 15 nhân 17, sau đó ghi kết quả tính được vào file 'result.txt'.",
     "eval_type": "functional",
     "eval_script": "test -f result.txt && grep -q '255' result.txt && echo PASS",
-    "max_steps": 8
+    "max_steps": 8,
+    "timeout_seconds": 90
   },
   {
     "id": "task_006",
@@ -53,7 +57,8 @@
     "instruction": "Tìm trong bộ nhớ xem sinh nhật của John là ngày nào và trả lời ngắn gọn.",
     "eval_type": "keyword",
     "expected_keywords": ["15", "8", "tháng 8"],
-    "max_steps": 8
+    "max_steps": 8,
+    "timeout_seconds": 90
   },
   {
     "id": "task_007",
@@ -62,7 +67,8 @@
     "instruction": "Chạy lệnh kiểm tra phiên bản C++ compiler hiện tại qua lệnh shell ('g++ --version' hoặc 'clang --version') và cho biết tên compiler.",
     "eval_type": "keyword",
     "expected_keywords": ["g++", "clang", "gcc", "Free Software Foundation", "Apple clang"],
-    "max_steps": 8
+    "max_steps": 8,
+    "timeout_seconds": 90
   },
   {
     "id": "task_008",
@@ -71,9 +77,9 @@
     "instruction": "Tìm kiếm trên web xem ai là hiệu trưởng hiện tại của Trường Đại học Khoa học Tự nhiên ĐHQG-HCM.",
     "eval_type": "keyword",
     "expected_keywords": ["Trần", "Lê", "Hiệu trưởng", "HCMUS"],
-    "max_steps": 8
+    "max_steps": 8,
+    "timeout_seconds": 90
   },
-
   {
     "id": "task_009",
     "difficulty": "hard",
@@ -82,7 +88,8 @@
     "setup_script": "echo -e '120\n350\n530' > prices.txt",
     "eval_type": "functional",
     "eval_script": "test -f total.txt && grep -q '1000' total.txt && echo PASS",
-    "max_steps": 10
+    "max_steps": 12,
+    "timeout_seconds": 120
   },
   {
     "id": "task_010",
@@ -91,6 +98,7 @@
     "instruction": "Tìm kiếm thông tin năm phát hành chuẩn C++23. Sau khi có kết quả, lưu ghi chú này vào memory và đồng thời tạo file 'cpp23_note.txt' chứa năm đó.",
     "eval_type": "functional",
     "eval_script": "test -f cpp23_note.txt && grep -q '2023' cpp23_note.txt && echo PASS",
-    "max_steps": 10
+    "max_steps": 12,
+    "timeout_seconds": 120
   }
 ]

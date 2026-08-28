@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     // =========================================================================
     // CHẾ ĐỘ 1: CHẠY BENCHMARK HARNESS TỰ ĐỘNG
     // =========================================================================
-    bool run_benchmark_mode = false; // Đặt false nếu muốn chạy tương tác 1 câu lẻ bên dưới
+    bool run_benchmark_mode = true; // Đặt false nếu muốn chạy tương tác 1 câu lẻ bên dưới
 
     if (run_benchmark_mode) {
         cout << "\n======================================================\n";

@@ -26,7 +26,7 @@ BenchmarkTask BenchmarkTask::fromJson(const nlohmann::json& j) {
     task.evalScript = j.value("eval_script", "");
     task.setupScript = j.value("setup_script", "");
     task.maxSteps = j.value("max_steps", 10);
-    task.timeoutSeconds = j.value("timeout_seconds", 30);
+    task.timeoutSeconds = j.value("timeout_seconds", 60);
 
     if (j.contains("expected_keywords") && j["expected_keywords"].is_array()) {
         task.expectedKeywords = j["expected_keywords"].get<std::vector<std::string>>();
@@ -77,7 +77,9 @@ std::expected<bool, std::string> HarnessRunner::loadTasks(const std::string& tas
 
 Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
     std::cout << "\n======================================================\n";
-    std::cout << std::format("[HarnessRunner] Running Task: {} ({})\n", task.id, task.difficulty);
+    std::cout << std::format("[HarnessRunner] Running Task: {} (Độ khó: {}, Max Steps: {}, Timeout: {}s)\n", 
+                             task.id, task.difficulty, task.maxSteps, task.timeoutSeconds);
+    std::cout << std::format("Description: {}\n", task.description);
     std::cout << std::format("Instruction: {}\n", task.instruction);
     std::cout << "======================================================\n";
 
@@ -94,8 +96,21 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
     std::string modelName = "meta/llama-3.2-11b-vision-instruct";
     Trajectory trajectory(task.id, modelName, task.instruction);
 
-    // 3. Khởi tạo AgentLoop và tiêm Hook Callback (Observer Pattern)
+    // 3. Khởi tạo AgentLoop và cấu hình theo Max Steps & Độ khó của Task
     AgentLoop agent(task.maxSteps);
+    
+    // CƠ CHẾ ADAPTIVE PLANNING:
+    // - Task "simple": Tắt planning để thực thi nhanh (Fast Path), tiết kiệm token
+    // - Task "medium" / "hard": Bật TaskPlan (Deliberative Path) để lập kế hoạch suy nghĩ chiến lược
+    if (task.difficulty == "simple") {
+        agent.setEnablePlanning(false);
+        std::cout << "[Adaptive Strategy]: Fast Path (Tắt Planning - Thực thi phản xạ nhanh)\n";
+    } else {
+        agent.setEnablePlanning(true);
+        std::cout << "[Adaptive Strategy]: Deliberative Path (Bật TaskPlan - Suy nghĩ chiến lược vòng đầu)\n";
+    }
+
+    // Tiêm Hook Callback (Observer Pattern)
     agent.setStepHook([&trajectory](const StepData& step) {
         std::cout << std::format("  -> [Hook Captured] Step {}: Tool '{}' (Latency: {}ms)\n", 
                                  step.stepNumber, step.actionName, step.latencyMs);

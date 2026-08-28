@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
 
 struct ToolCallRequest {
     std::string tool_name;
@@ -14,7 +15,6 @@ struct ToolCallRequest {
 };
 
 class ToolCallParser {
-private:
 public:
     static std::vector<std::string> extract_all_jsons(const std::string& text);
     static std::vector<ToolCallRequest> parse_all(const std::string& llm_response);
@@ -22,4 +22,4 @@ public:
     ~ToolCallParser() = default;
 };
 
-#endif
+#endif // TOOL_CALL_PARSER_H

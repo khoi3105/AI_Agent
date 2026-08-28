@@ -15,7 +15,7 @@ struct StepData {
     int64_t latencyMs{0};
     int tokensUsed{0};
 
-    // Chuyển dữ liệu của 1 bước thành JSON
+    // Khai báo phương thức chuyển dữ liệu của 1 bước thành JSON (định nghĩa trong trajectory.cpp)
     nlohmann::json toJson() const;
 };
 

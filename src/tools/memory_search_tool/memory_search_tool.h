@@ -3,10 +3,14 @@
 
 #include "../tool.h"
 #include <sqlite3.h>
+#include <string>
+#include <vector>
 
 class MemorySearchTool : public Tool {
 private:
     sqlite3* _db;
+    bool initDatabase();
+    std::vector<std::string> tokenize(const std::string& text) const;
 
 public:
     explicit MemorySearchTool();

@@ -3,13 +3,110 @@
 #include <memory>
 #include <format>
 #include <iostream>
-#include <chrono> // time
+#include <chrono>
 #include <stop_token>
 
 #include "AgentLoop.h"
 #include "tool_call_parser.h"
 #include "../tools/tool_registry.h"
 #include "../tools/tool_policy.h"
+#include "../environment/native_environment.h"
+
+AgentLoop::AgentLoop(
+    int max_steps, 
+    std::string skills_dir,
+    std::shared_ptr<ToolRegistry> registry,
+    std::shared_ptr<ToolPolicy> policy,
+    std::shared_ptr<Environment> env)
+    : _maxstep(max_steps), 
+      _skillLoader(std::move(skills_dir)), 
+      _conversationHistory(nlohmann::json::array()),
+      _registry(std::move(registry)),
+      _toolPolicy(std::move(policy)),
+      _env(std::move(env))
+{
+    if (!_env) {
+        _env = std::make_shared<NativeEnvironment>();
+    }
+    if (!_registry) {
+        _registry = std::make_shared<ToolRegistry>();
+    }
+    if (!_toolPolicy) {
+        _toolPolicy = std::make_shared<ToolPolicy>();
+    }
+}
+
+std::string AgentLoop::preparePlanningPrompt(const ToolRegistry& registry, const std::string& user_task) {
+    nlohmann::json tools_schema = registry.getAllSchemas();
+
+    std::string skills_section = "";
+    if (!user_task.empty()) {
+        auto skill_res = _skillLoader.selectSkillsForTask(user_task);
+        if (skill_res.has_value() && !skill_res.value().empty()) {
+            skills_section = "\n\n    === KỸ NĂNG HƯỚNG DẪN CHUYÊN BIỆT (APPLIED SKILLS) ===\n" + skill_res.value() + "\n";
+        }
+    }
+
+    return R"(Bạn là một Chuyên gia Lập kế hoạch AI (AI Task Planner).
+Nhiệm vụ của bạn là phân tích yêu cầu của người dùng, suy nghĩ chiến lược và lập kế hoạch các bước thực hiện tuần tự.
+
+=== CÁC CÔNG CỤ HIỆN CÓ ĐỂ SỬ DỤNG ===
+)" + tools_schema.dump(2) + skills_section + R"(
+
+=== QUY TẮC PHẢN HỒI (BẮT BUỘC) ===
+QUY TẮC CỐT LÕI: Mỗi lượt CHỈ ĐƯỢC sinh DUY NHẤT 01 khối JSON công cụ cho bước hiện tại. TUYỆT ĐỐI KHÔNG tự giả lập kết quả trả về của tool,    
+KHÔNG viết nhiều tool call trong cùng 1 lượt. Phải dừng lại đợi hệ thống trả về kết quả quan sát (Observation) rồi mới thực hiện bước tiếp theo.
+Bạn PHẢI trả về DUY NHẤT 01 khối JSON có cấu trúc chính xác như sau, KHÔNG viết bất kỳ lời dẫn nào khác:
+```json
+{
+  "type": "plan",
+  "goal": "<Mục tiêu chính xác của nhiệm vụ>",
+  "reasoning": "<Phân tích yêu cầu, tư duy chiến lược và cách tiếp cận bài toán>",
+  "steps": [
+    {
+      "description": "<Mô tả chi tiết bước 1 cần làm>",
+      "tool": "<Tên công cụ dự kiến dùng hoặc 'none'>"
+    },
+    {
+      "description": "<Mô tả chi tiết bước 2 cần làm>",
+      "tool": "<Tên công cụ dự kiến dùng hoặc 'none'>"
+    }
+  ]
+}
+```
+)";
+}
+
+std::expected<TaskPlan, std::string> AgentLoop::plan(
+    const std::string& user_task,
+    const std::shared_ptr<LLMClient>& client,
+    const std::vector<std::string>& image_paths,
+    std::stop_token stop_token)
+{
+    if (stop_token.stop_requested()) {
+        return std::unexpected("[ERROR]: Task bi huy hoac Timeout truoc khi lap ke hoach!");
+    }
+
+    std::string plan_system_prompt = preparePlanningPrompt(*_registry, user_task);
+    nlohmann::json plan_history = nlohmann::json::array();
+    plan_history.push_back({{"role", "system"}, {"content", plan_system_prompt}});
+    plan_history.push_back({{"role", "user"}, {"content", user_task}});
+
+    std::cout << "[Planner]: Dang suy nghi va lap ke hoach (TaskPlan) cho nhiem vu...\n";
+    auto plan_response = client->chat(plan_history, image_paths);
+    
+    if (!plan_response.has_value()) {
+        return std::unexpected("[Planner ERROR]: Khong the lay ke hoach tu LLM: " + plan_response.error());
+    }
+
+    std::cout << "========================================================================\n";
+    std::cout << "--> Ke hoach goc tu AI Planner:\n" << *plan_response << "\n";
+    std::cout << "========================================================================\n";
+
+    TaskPlan task_plan = TaskPlan::parse(*plan_response);
+    std::cout << task_plan.toString() << "\n";
+    return task_plan;
+}
 
 std::expected<std::string, std::string> AgentLoop::run(
     const std::string& user_task, 
@@ -21,21 +118,57 @@ std::expected<std::string, std::string> AgentLoop::run(
         return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
     }
 
-    ToolRegistry registry;
-    ToolPolicy toolPolicy;
     _conversationHistory.clear();
     _loopdetector.reset();
-    
-    // Lưu lại lịch sử 
-    std::string system_prompt = prepareSystemPrompt(registry, user_task);
-    _conversationHistory.push_back({{"role", "system"}, {"content", system_prompt }});
-    _conversationHistory.push_back({{"role", "user"}, {"content", user_task}});
+
+    // =========================================================================
+    // VÒNG 0: SUY NGHĨ & LẬP KẾ HOẠCH (TASKPLAN)
+    // =========================================================================
+    std::string plan_context = "";
+    if (_enablePlanning) {
+        auto plan_start_time = std::chrono::steady_clock::now();
+        auto plan_result = plan(user_task, client, image_paths, stop_token);
+        auto plan_end_time = std::chrono::steady_clock::now();
+
+        if (stop_token.stop_requested()) {
+            return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
+        }
+
+        if (plan_result.has_value() && plan_result->isValid()) {
+            plan_context = plan_result->toPromptContext();
+
+            // Ghi nhận vòng suy nghĩ vào StepData & kích hoạt Observer Hook
+            StepData plan_step;
+            plan_step.stepNumber = 0;
+            plan_step.thought = plan_result->getReasoning();
+            plan_step.actionName = "planning";
+            plan_step.actionArgs = plan_result->toJson();
+            plan_step.observation = plan_result->toString();
+            plan_step.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(plan_end_time - plan_start_time).count();
+
+            if (_stepHook) {
+                _stepHook(plan_step);
+            }
+        }
+    }
+
+    // =========================================================================
+    // KHỞI TẠO LỊCH SỬ HỘI THOẠI CHO VÒNG LẶP REACT
+    // =========================================================================
+    std::string system_prompt = prepareSystemPrompt(*_registry, user_task);
+    _conversationHistory.push_back({{"role", "system"}, {"content", system_prompt}});
+
+    std::string initial_user_content = user_task;
+    if (!plan_context.empty()) {
+        initial_user_content += "\n" + plan_context;
+    }
+    _conversationHistory.push_back({{"role", "user"}, {"content", initial_user_content}});
 
     int step = 0;
     ToolCallRequest request;
 
     // VÒNG LẶP REACT (Observe -> Think -> Act)
-    while ( step < AgentLoop::_maxstep ) {  
+    while (step < _maxstep) {  
         if (stop_token.stop_requested()) {
             return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
         }
@@ -43,7 +176,9 @@ std::expected<std::string, std::string> AgentLoop::run(
         step++;
         auto step_start_time = std::chrono::steady_clock::now();
 
-        std::expected<std::string,std::string> llm_response = client->chat(_conversationHistory, image_paths);
+        // Chỉ truyền image_paths ở turn 1 nếu chưa lập plan trước đó để tối ưu token
+        std::vector<std::string> current_images = (step == 1 && !_enablePlanning) ? image_paths : std::vector<std::string>{};
+        std::expected<std::string, std::string> llm_response = client->chat(_conversationHistory, current_images);
         
         if (stop_token.stop_requested()) {
             return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
@@ -58,7 +193,7 @@ std::expected<std::string, std::string> AgentLoop::run(
         }
 
         request = parseStepResponse(*llm_response);
-        _conversationHistory.push_back({{"role","assistant"},{"content",*llm_response}});
+        _conversationHistory.push_back({{"role", "assistant"}, {"content", *llm_response}});
 
         // Khởi tạo StepData để chứa dữ liệu nhật ký của lượt này
         StepData current_step_data;
@@ -66,22 +201,19 @@ std::expected<std::string, std::string> AgentLoop::run(
         current_step_data.thought = *llm_response;
 
         if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
-
             current_step_data.actionName = request.tool_name;
             current_step_data.actionArgs = request.args;
 
-            LoopCheckResult _detectLoop = _loopdetector.checkLoop(request.tool_name,request.args);
+            LoopCheckResult detectLoop = _loopdetector.checkLoop(request.tool_name, request.args);
 
-            if ( _detectLoop.status == LoopStatus::CRITICAL ) {
-                return std::unexpected(_detectLoop.message);
-            }
-            else if ( _detectLoop.status == LoopStatus::WARNING ) {
+            if (detectLoop.status == LoopStatus::CRITICAL) {
+                return std::unexpected(detectLoop.message);
+            } else if (detectLoop.status == LoopStatus::WARNING) {
                 _conversationHistory.push_back({
-                    {"role","user"},
-                    {"content","CANH BAO TU HE THONG: Ban dang goi cung 1 Tool voi cung tham so nhieu lan. Vui long chon cach khac hoac dua ra cau tra loi cuoi cung!"}
+                    {"role", "user"},
+                    {"content", "CANH BAO TU HE THONG: Ban dang goi cung 1 Tool voi cung tham so nhieu lan. Vui long chon cach khac hoac dua ra cau tra loi cuoi cung!"}
                 });
 
-                // Tính latency và bắn Hook trước khi continue
                 auto step_end_time = std::chrono::steady_clock::now();
                 current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
                 current_step_data.observation = "[CẢNH BÁO LẶP TỪ HỆ THỐNG]";
@@ -101,22 +233,15 @@ std::expected<std::string, std::string> AgentLoop::run(
             // ================================
             // TOOL POLICY
             // ================================
-
-            auto policyResult = toolPolicy.validate(
+            auto policyResult = _toolPolicy->validate(
                 request.tool_name,
                 request.args
             );
 
             if (!policyResult) {
+                std::cout << "[ToolPolicy] BLOCKED: " << policyResult.error() << '\n';
 
-                std::cout
-                    << "[ToolPolicy] BLOCKED: "
-                    << policyResult.error()
-                    << '\n';
-
-                current_step_data.observation =
-                    "[POLICY BLOCKED] " +
-                    policyResult.error();
+                current_step_data.observation = "[POLICY BLOCKED] " + policyResult.error();
 
                 _conversationHistory.push_back({
                     {"role", "user"},
@@ -127,15 +252,8 @@ std::expected<std::string, std::string> AgentLoop::run(
                     }
                 });
 
-                auto step_end_time =
-                    std::chrono::steady_clock::now();
-
-                current_step_data.latencyMs =
-                    std::chrono::duration_cast<
-                        std::chrono::milliseconds
-                    >(
-                        step_end_time - step_start_time
-                    ).count();
+                auto step_end_time = std::chrono::steady_clock::now();
+                current_step_data.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(step_end_time - step_start_time).count();
 
                 if (_stepHook) {
                     _stepHook(current_step_data);
@@ -143,7 +261,8 @@ std::expected<std::string, std::string> AgentLoop::run(
 
                 continue;
             }
-            auto checkToolRegistry = act(registry, request.tool_name, request.args);
+
+            auto checkToolRegistry = act(*_registry, request.tool_name, request.args);
             
             observe(request.tool_name, checkToolRegistry, current_step_data);
 
@@ -156,6 +275,9 @@ std::expected<std::string, std::string> AgentLoop::run(
             continue; 
         }
 
+        // =====================================================================
+        // AI HOÀN THÀNH CÂU TRẢ LỜI (FINISH / DIRECT RESPONSE)
+        // =====================================================================
         current_step_data.actionName = "finish";
         current_step_data.actionArgs = request.args;
         current_step_data.observation = "Completed final answer.";
@@ -167,21 +289,23 @@ std::expected<std::string, std::string> AgentLoop::run(
             _stepHook(current_step_data);
         }
 
-        break;
+        // Trả về kết quả thành công ngay khi AI hoàn tất
+        return formatFinalResponse(request);
     }
 
+    // Kiểm tra Timeout / Cancel
     if (stop_token.stop_requested()) {
         return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
     }
 
-    if (step >= AgentLoop::_maxstep) {
-        return std::unexpected("[ERROR]: Da dat so buoc toi da!");
-    }
-
+    // =========================================================================
+    // GRACEFUL DEGRADATION: KHI HẾT BƯỚC (MAX STEPS REACHED)
+    // =========================================================================
+    std::cout << std::format("[AgentLoop Warning]: Đã đạt số bước tối đa ({}). Tổng hợp kết quả tốt nhất hiện có...\n", _maxstep);
     return formatFinalResponse(request);
 }
 
-std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry, const std::string& user_task){
+std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry, const std::string& user_task) {
     nlohmann::json tools_schema = registry.getAllSchemas();
 
     std::string skills_section = "";
@@ -201,7 +325,7 @@ std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry, const s
     === QUY TẮC RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
     1. MỖI LƯỢT CHỈ ĐƯỢC TRẢ VỀ DUY NHẤT 01 KHỐI JSON. KHÔNG VIẾT BẤT KỲ LỜI VĂN MỞ ĐẦU HAY GIẢI THÍCH NÀO KHÁC.
     2. KHÔNG TỰ TÍNH TOÁN HAY GIẢ LẬP KẾT QUẢ TOOL. Nếu tác vụ có phép tính hoặc tra cứu, BẮT BUỘC trả về "tool_call" cho bước đó.
-    3. Nếu người dùng hỏi nhiều câu: Hãy gọi 01 Tool cho câu hỏi đầu tiên. Sau khi nhận được kết quả (Observation), bạn mới tiếp tục gọi Tool cho câu tiếp theo hoặc tổng hợp câu trả lời và cách nhau bởi định dạng: ```json <...> ```
+    3. Nếu người dùng hỏi nhiều câu hoặc có nhiều bước: Hãy gọi 01 Tool cho bước hiện tại. Sau khi nhận được kết quả (Observation), bạn mới tiếp tục gọi Tool cho bước tiếp theo hoặc tổng hợp câu trả lời và cách nhau bởi định dạng: ```json <...> ```
     
     Bạn cần kiểm tra ý định của người dùng và tuân thủ chặt chẽ 2 định dạng đầu ra sau:
 
@@ -212,10 +336,10 @@ std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry, const s
     "args": { <các_tham_số_đúng_định_dạng_properties_trong_schema> }
     }
 
-    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, hoặc khi KHÔNG CÓ công cụ nào phù hợp)
+    2. ĐỊNH DẠNG 2: TRẢ LỜI TRỰC TIẾP (Mặc định cho mọi câu hỏi kiến thức, trò chuyện, hoặc khi hoàn thành nhiệm vụ)
     {
     "type": "response",
-    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_của_bạn>"
+    "text": "<nội_dung_trả_lời_dựa_trên_kiến_thức_hoặc_kết_quả_tool>"
     }
 
     === RÀNG BUỘC NGHIÊM NGẶT (CRITICAL RULES) ===
