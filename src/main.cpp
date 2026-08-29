@@ -1,4 +1,6 @@
 #include <iostream>
+#include <print>
+#include <ranges>
 #include <string>
 #include <memory>
 #include <vector>
@@ -25,24 +27,24 @@
 using namespace std;
 
 void printBanner() {
-    cout << "=================================================================\n";
-    cout << "          AUTONOMOUS C++ AI AGENT (OOP 2026 - HCMUS)             \n";
-    cout << "=================================================================\n";
+    println("=================================================================");
+    println("          AUTONOMOUS C++ AI AGENT (OOP 2026 - HCMUS)             ");
+    println("=================================================================");
 }
 
 void printHelp(const char* progName) {
-    cout << "\nCách sử dụng:\n";
-    cout << format("  {} [tùy chọn] [yêu cầu]\n\n", progName);
-    cout << "Các tùy chọn:\n";
-    cout << "  --web, -w               : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)\n";
-    cout << "  --gui, -g               : Khởi chạy Desktop GUI Dashboard (Dear ImGui)\n";
-    cout << "  --gui-agent, -a         : Khởi chạy Desktop GUI Agent (Computer Use & Automation)\n";
-    cout << "  --multi-agent, -m       : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
-    cout << "  --eval, -b              : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)\n";
-    cout << "  --task <id>             : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)\n";
-    cout << "  --help, -h              : Hiển thị hướng dẫn sử dụng này\n";
-    cout << "  \"<nội dung câu hỏi>\"    : Chạy trực tiếp một tác vụ cho AI Agent\n";
-    cout << "  (Không có tham số)      : Mở Menu tương tác trực quan\n\n";
+    println("\nCách sử dụng:");
+    println("  {} [tùy chọn] [yêu cầu]\n", progName);
+    println("Các tùy chọn:");
+    println("  --web, -w               : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)");
+    println("  --gui, -g               : Khởi chạy Desktop GUI Dashboard (Dear ImGui)");
+    println("  --gui-agent, -a         : Khởi chạy Desktop GUI Agent (Computer Use & Automation)");
+    println("  --multi-agent, -m       : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)");
+    println("  --eval, -b              : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)");
+    println("  --task <id>             : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)");
+    println("  --help, -h              : Hiển thị hướng dẫn sử dụng này");
+    println("  \"<nội dung câu hỏi>\"    : Chạy trực tiếp một tác vụ cho AI Agent");
+    println("  (Không có tham số)      : Mở Menu tương tác trực quan\n");
 }
 
 int main(int argc, char* argv[]) {

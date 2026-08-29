@@ -93,7 +93,7 @@ void WebServer::start() {
     // 2. API Trạng thái hệ thống
     svr.Get("/api/status", [this](const httplib::Request&, httplib::Response& res) {
         string model = getEnvVar("OLLAMA_MODEL");
-        if (model.empty()) model = "meta/llama-3.2-11b-vision-instruct";
+        if (model.empty()) model = Config::instance()->llm().model;
 
         nlohmann::json resp = {
             {"status", "online"},
@@ -162,7 +162,8 @@ void WebServer::start() {
                     {"toolName", sd.actionName},
                     {"toolArgs", sd.actionArgs},
                     {"observation", sd.observation},
-                    {"latencyMs", sd.latencyMs}
+                    {"latencyMs", sd.latencyMs},
+                    {"tokensUsed", sd.tokensUsed}
                 };
 
                 {

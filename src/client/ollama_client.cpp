@@ -83,7 +83,9 @@ std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& messa
     }
 
     // 2. Gửi request qua HttpClient (Timeout 120s)
-    auto http_res = agent::utils::HttpClient::postJson(_baseURL, payload.dump(), headers, 120);
+    int timeoutSec = Config::instance()->http().postTimeout;                                         
+    if (timeoutSec <= 0) timeoutSec = 120;
+    auto http_res = agent::utils::HttpClient::postJson(_baseURL, payload.dump(), headers, timeoutSec);
 
     if (!http_res.has_value()) {
         return std::unexpected(http_res.error());
@@ -91,15 +93,38 @@ std::expected<std::string, std::string> OllamaClient::chat(nlohmann::json& messa
 
     std::string response_string = http_res.value();
 
-    // 3. Parse JSON Response và trích xuất câu trả lời
+    // 3. Parse JSON Response và trích xuất câu trả lời kèm token usage
     try {
         auto response_json = nlohmann::json::parse(response_string);
 
-        if (!response_json.contains("choices") || response_json["choices"].empty()) {
-            return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
+        // Trích xuất token usage
+        _lastTokensUsed = 0;
+        if (response_json.contains("usage") && response_json["usage"].is_object()) {
+            _lastTokensUsed = response_json["usage"].value("total_tokens", 0);
+            if (_lastTokensUsed == 0) {
+                int prompt_tokens = response_json["usage"].value("prompt_tokens", 0);
+                int comp_tokens = response_json["usage"].value("completion_tokens", 0);
+                _lastTokensUsed = prompt_tokens + comp_tokens;
+            }
+        } else if (response_json.contains("prompt_eval_count") || response_json.contains("eval_count")) {
+            _lastTokensUsed = response_json.value("prompt_eval_count", 0) + response_json.value("eval_count", 0);
         }
 
-        std::string message_str = response_json["choices"][0]["message"]["content"];
+        std::string message_str = "";
+        if (response_json.contains("choices") && !response_json["choices"].empty() &&
+            response_json["choices"][0].contains("message") && response_json["choices"][0]["message"].contains("content")) {
+            message_str = response_json["choices"][0]["message"]["content"].get<std::string>();
+        } else if (response_json.contains("message") && response_json["message"].contains("content")) {
+            message_str = response_json["message"]["content"].get<std::string>();
+        } else {
+            return std::unexpected("Response JSON thiếu trường 'choices' hoặc 'message'.");
+        }
+
+        if (_lastTokensUsed <= 0) {
+            _lastTokensUsed = static_cast<int>((payload.dump().length() + message_str.length()) / 4);
+            if (_lastTokensUsed <= 0) _lastTokensUsed = 1;
+        }
+
         return message_str; 
 
     } catch (const nlohmann::json::exception& e) {

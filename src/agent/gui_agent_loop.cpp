@@ -133,6 +133,7 @@ std::expected<std::string, std::string> GUIAgentLoop::run(
 
         // 2. Gửi ảnh và lịch sử cho VLM
         std::expected<std::string, std::string> llm_response = client->chat(_conversationHistory, current_images);
+        int step_tokens = client->getLastTokensUsed();
 
         if (stop_token.stop_requested()) {
             return std::unexpected("[ERROR]: Task bi huy hoac Timeout!");
@@ -152,6 +153,7 @@ std::expected<std::string, std::string> GUIAgentLoop::run(
         StepData current_step_data;
         current_step_data.stepNumber = step;
         current_step_data.thought = *llm_response;
+        current_step_data.tokensUsed = step_tokens;
 
         if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
             current_step_data.actionName = request.tool_name;

@@ -29,11 +29,11 @@ AgentGUI::AgentGUI(shared_ptr<LLMClient> client, shared_ptr<Environment> env)
 
     // Nạp giá trị mặc định từ môi trường
     string defaultModel = getEnvVar("OLLAMA_MODEL");
-    if (defaultModel.empty()) defaultModel = "meta/llama-3.2-11b-vision-instruct";
+    if (defaultModel.empty()) defaultModel = Config::instance()->llm().model;
     strncpy(_modelBuffer, defaultModel.c_str(), sizeof(_modelBuffer) - 1);
 
     string defaultUrl = getEnvVar("OLLAMA_BASE_URL");
-    if (defaultUrl.empty()) defaultUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
+    if (defaultUrl.empty()) defaultUrl = Config::instance()->llm().baseUrl;
     strncpy(_baseUrlBuffer, defaultUrl.c_str(), sizeof(_baseUrlBuffer) - 1);
 
     string defaultKey = getEnvVar("LLAMA_API_KEY");

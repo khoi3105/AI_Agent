@@ -2,7 +2,7 @@
 
 > **Đồ Án Lập Trình Hướng Đối Tượng (OOP) - Năm Học 2025-2026**  
 > **Trường Đại Học Khoa Học Tự Nhiên - ĐHQG-HCM (HCMUS)**  
-> **Tác Giả:** Nhann  
+> **Tác Giả:** Khôi, Nhân, Huân  
 > **Ngôn Ngữ:** C++ (Tiêu chuẩn hiện đại C++20/C++23/C++26)
 
 ---

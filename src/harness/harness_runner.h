@@ -53,6 +53,7 @@ private:
     std::shared_ptr<Environment> _env;
     std::string _outputDir;
     std::vector<BenchmarkTask> _tasks;
+    std::vector<BenchmarkTask> _extraTasks;
 
 public:
     explicit HarnessRunner(
@@ -62,6 +63,8 @@ public:
         std::shared_ptr<LLMClient> workerClient = nullptr
     );
 
+    void addExtraTask(const BenchmarkTask& task);
+
     // Nạp danh sách test tasks từ file JSON
     std::expected<bool, std::string> loadTasks(const std::string& tasksFilePath);
 
@@ -70,6 +73,12 @@ public:
 
     // Chạy toàn bộ danh sách tasks đã nạp
     std::vector<Trajectory> runBatch();
+
+    // Xuất toàn bộ kết quả Benchmark ra file JSON tổng hợp (results.json) kèm Success Rate & Token Metrics
+    std::expected<bool, std::string> exportBatchResults(
+        const std::vector<Trajectory>& results, 
+        const std::string& filepath = "benchmark/results/results.json"
+    ) const;
 
     // ==========================================
     // MULTI-AGENT COORDINATION (TÍNH NĂNG 10.3)

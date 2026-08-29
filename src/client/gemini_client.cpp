@@ -139,7 +139,7 @@ std::expected<std::string, std::string> GeminiClient::chatNative(nlohmann::json&
         return std::unexpected(http_res.error());
     }
 
-    // 7. Parse kết quả trả về từ Gemini
+    // 7. Parse kết quả trả về từ Gemini kèm token usage
     try {
         auto response_json = nlohmann::json::parse(http_res.value());
 
@@ -148,6 +148,17 @@ std::expected<std::string, std::string> GeminiClient::chatNative(nlohmann::json&
                 ? response_json["error"]["message"].get<std::string>() 
                 : response_json["error"].dump();
             return std::unexpected("Gemini API Error: " + err_msg);
+        }
+
+        // Trích xuất token usage từ Gemini API
+        _lastTokensUsed = 0;
+        if (response_json.contains("usageMetadata") && response_json["usageMetadata"].is_object()) {
+            _lastTokensUsed = response_json["usageMetadata"].value("totalTokenCount", 0);
+            if (_lastTokensUsed == 0) {
+                int prompt_tokens = response_json["usageMetadata"].value("promptTokenCount", 0);
+                int cand_tokens = response_json["usageMetadata"].value("candidatesTokenCount", 0);
+                _lastTokensUsed = prompt_tokens + cand_tokens;
+            }
         }
 
         if (!response_json.contains("candidates") || response_json["candidates"].empty()) {
@@ -165,6 +176,12 @@ std::expected<std::string, std::string> GeminiClient::chatNative(nlohmann::json&
                 result += part["text"].get<std::string>();
             }
         }
+
+        if (_lastTokensUsed <= 0) {
+            _lastTokensUsed = static_cast<int>((payload.dump().length() + result.length()) / 4);
+            if (_lastTokensUsed <= 0) _lastTokensUsed = 1;
+        }
+
         return result;
 
     } catch (const std::exception& e) {
@@ -242,11 +259,26 @@ std::expected<std::string, std::string> GeminiClient::chatOpenAICompatible(nlohm
             return std::unexpected("Gemini API Error: " + err_msg);
         }
 
+        _lastTokensUsed = 0;
+        if (response_json.contains("usage") && response_json["usage"].is_object()) {
+            _lastTokensUsed = response_json["usage"].value("total_tokens", 0);
+            if (_lastTokensUsed == 0) {
+                int prompt_tokens = response_json["usage"].value("prompt_tokens", 0);
+                int comp_tokens = response_json["usage"].value("completion_tokens", 0);
+                _lastTokensUsed = prompt_tokens + comp_tokens;
+            }
+        }
+
         if (!response_json.contains("choices") || response_json["choices"].empty()) {
             return std::unexpected("Response JSON thiếu trường 'choices' hoặc rỗng.");
         }
 
-        return response_json["choices"][0]["message"]["content"].get<std::string>();
+        std::string result = response_json["choices"][0]["message"]["content"].get<std::string>();
+        if (_lastTokensUsed <= 0) {
+            _lastTokensUsed = static_cast<int>((payload.dump().length() + result.length()) / 4);
+            if (_lastTokensUsed <= 0) _lastTokensUsed = 1;
+        }
+        return result;
 
     } catch (const std::exception& e) {
         return std::unexpected(std::string("Lỗi parse OpenAI JSON response: ") + e.what());
