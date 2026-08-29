@@ -56,6 +56,7 @@ target_link_libraries(main PRIVATE
     OpenGL::GL
     ${POPPLER_LIBRARIES}
     ${GUMBO_LIBRARIES}
+    xdo
     glfw
     dl
     pthread

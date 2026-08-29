@@ -8,6 +8,8 @@
 #include "memory_save_tool/memory_save_tool.h"
 #include "memory_search_tool/memory_search_tool.h"
 #include "web_search_tool/web_search_tool.h"
+#include "gui_tool/screenshot_tool.h"
+#include "gui_tool/gui_action_tool.h"
 
 #include <stdexcept>
 
@@ -66,6 +68,20 @@ void ToolRegistry::registerBuiltInTools() {
         []()
         {
             return std::make_unique<WebSearchTool>();
+        });
+    //Screenshot
+    registerTool(
+        "capture_screenshot",
+        []()
+        {
+            return std::make_unique<ScreenshotTool>();
+        });
+    //GUI Action
+    registerTool(
+        "gui_action",
+        []()
+        {
+            return std::make_unique<GuiActionTool>();
         });
 }
 
