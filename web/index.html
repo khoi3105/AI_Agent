@@ -71,21 +71,46 @@
             backdrop-filter: blur(16px);
             border: 1px solid rgba(56, 189, 248, 0.12);
         }
-        /* Chat Bubble Auto Fit Content */
+        @keyframes messageFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .msg-animated {
+            animation: messageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        /* Chat Bubble Auto Fit Content & Responsive Scaling (User & Bot) */
         .bubble-user {
             background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            display: inline-block;
             width: fit-content;
-            max-width: 80%;
+            max-width: min(75%, 600px);
+            padding: 0.6rem 0.95rem;
+            border-radius: 1.15rem;
+            border-top-right-radius: 0.25rem;
             word-break: break-word;
             overflow-wrap: anywhere;
+            box-shadow: 0 4px 14px 0 rgba(2, 132, 199, 0.25);
+            line-height: 1.45;
         }
         .bubble-agent {
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid #1e293b;
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            display: inline-block;
             width: fit-content;
-            max-width: 85%;
+            max-width: min(85%, 750px);
+            padding: 0.7rem 1.1rem;
+            border-radius: 1.15rem;
+            border-top-left-radius: 0.25rem;
             word-break: break-word;
             overflow-wrap: anywhere;
+            box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.35);
+            line-height: 1.5;
         }
         /* Collapsible Code Fade */
         .code-collapsed {
@@ -111,32 +136,47 @@
 <body class="h-full flex flex-col overflow-hidden select-none">
 
     <!-- TOP NAVBAR (FIXED HEIGHT) -->
-    <header class="h-16 border-b border-brand-border bg-brand-card/90 backdrop-blur px-6 flex items-center justify-between shrink-0 z-20">
-        <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+    <header class="h-16 border-b border-brand-border bg-brand-card/90 backdrop-blur px-4 md:px-6 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center gap-3 md:gap-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
                 <i class="fa-solid fa-robot text-white text-lg"></i>
             </div>
             <div>
                 <div class="flex items-center gap-2">
-                    <h1 class="font-bold text-base text-white tracking-wide">AUTONOMOUS C++ AI AGENT</h1>
-                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">OOP 2026</span>
+                    <h1 class="font-bold text-sm md:text-base text-white tracking-wide">AUTONOMOUS C++ AI AGENT</h1>
+                    <span class="hidden sm:inline px-2 py-0.5 text-[10px] font-semibold rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">OOP 2026</span>
                 </div>
-                <p class="text-[11px] text-slate-400">ReAct Reasoning Engine • Trường ĐH Khoa học Tự nhiên ĐHQG-HCM</p>
+                <p class="text-[10px] md:text-[11px] text-slate-400 hidden sm:block">ReAct Reasoning Engine • Trường ĐH Khoa học Tự nhiên ĐHQG-HCM</p>
             </div>
         </div>
 
-        <!-- Navigation & Settings Header Buttons -->
-        <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950/80 border border-brand-border text-xs">
+        <!-- Navigation & Mode Header Buttons -->
+        <div class="flex items-center gap-2 md:gap-3">
+            
+            <!-- Quick Mode Switcher in Header -->
+            <div class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-brand-border text-xs">
+                <button id="quickModeSingle" onclick="setExecutionMode('single')" class="px-2.5 py-1 rounded-lg font-medium transition-all text-cyan-400 bg-cyan-500/20 flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-user text-[11px]"></i>
+                    <span class="hidden md:inline">Single Agent</span>
+                </button>
+                <button id="quickModeMulti" onclick="setExecutionMode('multi')" class="px-2.5 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-people-arrows text-[11px]"></i>
+                    <span class="hidden md:inline">Multi-Agent</span>
+                    <span class="px-1.5 py-0.2 text-[9px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Parallel</span>
+                </button>
+            </div>
+
+            <!-- Model Badge -->
+            <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950/80 border border-brand-border text-xs">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span class="text-slate-400 font-medium">Model:</span>
-                <span id="modelBadge" class="text-cyan-400 font-mono font-semibold">meta/llama-3.2-11b</span>
+                <span id="modelBadge" class="text-cyan-400 font-mono font-semibold">gemini-3.5-flash-lite</span>
             </div>
 
             <!-- Settings Modal Button -->
-            <button onclick="toggleSettingsModal(true)" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition-all shadow-sm">
+            <button onclick="toggleSettingsModal(true)" class="flex items-center gap-2 px-3 md:px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition-all shadow-sm">
                 <i class="fa-solid fa-gear text-cyan-400"></i>
-                <span>Cài Đặt & Gợi Ý</span>
+                <span class="hidden sm:inline">Cài Đặt & Gợi Ý</span>
             </button>
         </div>
     </header>
@@ -145,41 +185,41 @@
     <div class="flex-1 flex overflow-hidden w-full h-[calc(100vh-4rem)]">
         
         <!-- SIDEBAR NAVIGATION -->
-        <aside class="w-56 border-r border-brand-border bg-brand-card/50 flex flex-col justify-between shrink-0 h-full">
-            <div class="p-3 space-y-1">
-                <button onclick="switchTab('chat')" id="tabBtn-chat" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border border-cyan-500/30">
+        <aside class="w-16 md:w-56 border-r border-brand-border bg-brand-card/50 flex flex-col justify-between shrink-0 h-full">
+            <div class="p-2 md:p-3 space-y-1">
+                <button onclick="switchTab('chat')" id="tabBtn-chat" class="tab-btn w-full flex items-center gap-3 px-3 md:px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all bg-gradient-to-r from-cyan-500/20 to-transparent text-cyan-400 border border-cyan-500/30 justify-center md:justify-start">
                     <i class="fa-solid fa-comments text-sm w-4 text-center"></i>
-                    <span>Hội Thoại & ReAct</span>
+                    <span class="hidden md:inline">Hội Thoại & ReAct</span>
                 </button>
-                <button onclick="switchTab('benchmark')" id="tabBtn-benchmark" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+                <button onclick="switchTab('benchmark')" id="tabBtn-benchmark" class="tab-btn w-full flex items-center gap-3 px-3 md:px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 justify-center md:justify-start">
                     <i class="fa-solid fa-vial-circle-check text-sm w-4 text-center"></i>
-                    <span>Benchmark (10 Tasks)</span>
+                    <span class="hidden md:inline">Benchmark (10 Tasks)</span>
                 </button>
-                <button onclick="switchTab('memory')" id="tabBtn-memory" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+                <button onclick="switchTab('memory')" id="tabBtn-memory" class="tab-btn w-full flex items-center gap-3 px-3 md:px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 justify-center md:justify-start">
                     <i class="fa-solid fa-database text-sm w-4 text-center"></i>
-                    <span>Trí Nhớ SQLite</span>
+                    <span class="hidden md:inline">Trí Nhớ SQLite</span>
                 </button>
-                <button onclick="switchTab('tools')" id="tabBtn-tools" class="tab-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40">
+                <button onclick="switchTab('tools')" id="tabBtn-tools" class="tab-btn w-full flex items-center gap-3 px-3 md:px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 justify-center md:justify-start">
                     <i class="fa-solid fa-toolbox text-sm w-4 text-center"></i>
-                    <span>Công Cụ (8 Tools)</span>
+                    <span class="hidden md:inline">Công Cụ (8+ Tools)</span>
                 </button>
             </div>
 
             <!-- Author & Version Footer -->
-            <div class="p-3 border-t border-brand-border bg-slate-950/40 text-[11px] text-slate-400 space-y-1">
+            <div class="p-3 border-t border-brand-border bg-slate-950/40 text-[11px] text-slate-400 space-y-1 hidden md:block">
                 <div class="flex items-center justify-between">
                     <span>Tác giả:</span>
                     <strong class="text-slate-200">Nhân, Khôi, Huân</strong>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span>Phiên bản:</span>
-                    <span class="text-cyan-400 font-mono">Web GUI</span>
+                    <span>Chế độ:</span>
+                    <span id="sidebarModeBadge" class="text-cyan-400 font-semibold">Single Agent</span>
                 </div>
             </div>
         </aside>
 
         <!-- AUTO-SCALING VIEWPORT -->
-        <main class="flex-1 bg-brand-dark p-3 md:p-5 flex flex-col h-full w-full overflow-hidden">
+        <main class="flex-1 bg-brand-dark p-2 md:p-5 flex flex-col h-full w-full overflow-hidden">
 
             <!-- ========================================================================= -->
             <!-- TAB 1: CHAT & LIVE REACT TRACE (AUTO-FIT CONTENT BUBBLES) -->
@@ -187,15 +227,20 @@
             <div id="tab-chat" class="tab-content h-full w-full flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl">
                 
                 <!-- Chat Header Bar -->
-                <div class="p-3.5 px-6 border-b border-brand-border flex items-center justify-between bg-slate-950/60 shrink-0">
+                <div class="p-3 md:p-3.5 px-4 md:px-6 border-b border-brand-border flex items-center justify-between bg-slate-950/60 shrink-0">
                     <div class="flex items-center gap-2.5">
-                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50"></span>
-                        <span class="font-bold text-xs text-slate-200 uppercase tracking-wider">Vết Thực Thi ReAct Thời Gian Thực (Live Stream)</span>
+                        <span id="liveStatusDot" class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50"></span>
+                        <span id="chatModeTitle" class="font-bold text-xs text-slate-200 uppercase tracking-wider">Luồng Suy Luận: Single Agent ReAct</span>
                     </div>
-                    <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1.5 px-3 py-1 rounded-lg hover:bg-rose-500/10">
-                        <i class="fa-solid fa-trash-can text-xs"></i>
-                        <span>Xóa nhật ký</span>
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <span id="activeModeDescBadge" class="hidden sm:inline px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                            Mô hình: Tự động
+                        </span>
+                        <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-rose-500/10">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                            <span class="hidden sm:inline">Xóa nhật ký</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Chat Messages & Steps Timeline (SCROLLABLE AREA) -->
@@ -215,12 +260,12 @@
                 </div>
 
                 <!-- Chat Input Box (STICKY AT BOTTOM) -->
-                <div class="p-3.5 md:p-4 border-t border-brand-border bg-slate-950/80 shrink-0">
-                    <form onsubmit="handleSend(event)" class="flex gap-3 items-center w-full">
-                        <textarea id="userInput" rows="1" placeholder="Nhập câu hỏi hoặc yêu cầu cho AI Agent (Nhấn Enter để gửi, Shift+Enter xuống dòng)..." 
+                <div class="p-3 md:p-4 border-t border-brand-border bg-slate-950/80 shrink-0">
+                    <form onsubmit="handleSend(event)" class="flex gap-2 md:gap-3 items-center w-full">
+                        <textarea id="userInput" rows="1" placeholder="Nhập câu hỏi hoặc bài toán phức tạp cho AI Agent (Nhấn Enter để gửi, Shift+Enter xuống dòng)..." 
                                   onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSend(event); }"
                                   class="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-brand-border focus:border-cyan-500 focus:outline-none text-xs md:text-sm text-white placeholder-slate-500 resize-none max-h-32 leading-relaxed"></textarea>
-                        <button type="submit" id="sendBtn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 font-semibold text-xs md:text-sm text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all shrink-0">
+                        <button type="submit" id="sendBtn" class="px-4 md:px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 font-semibold text-xs md:text-sm text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all shrink-0">
                             <span>Gửi Lệnh</span>
                             <i class="fa-solid fa-paper-plane text-xs"></i>
                         </button>
@@ -310,7 +355,7 @@
                 <div class="shrink-0">
                     <h2 class="text-lg font-bold text-white flex items-center gap-2">
                         <i class="fa-solid fa-toolbox text-amber-400"></i>
-                        <span>Danh Sách 8 Công Cụ Cốt Lõi (Tool Registry)</span>
+                        <span>Danh Sách Công Cụ Đăng Ký (Tool Registry)</span>
                     </h2>
                     <p class="text-xs text-slate-400 mt-0.5">Được kiểm duyệt an toàn tự động bởi ToolPolicy trước khi kích hoạt</p>
                 </div>
@@ -389,13 +434,13 @@
     <!-- SETTINGS & PROMPT SUGGESTIONS MODAL DIALOG -->
     <!-- ========================================================================= -->
     <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-brand-card border border-brand-border rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div class="bg-brand-card border border-brand-border rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
             <!-- Modal Header -->
             <div class="p-4 px-6 border-b border-brand-border flex items-center justify-between bg-slate-950/60 shrink-0">
                 <div class="flex items-center gap-2.5">
                     <i class="fa-solid fa-sliders text-cyan-400"></i>
-                    <h3 class="font-bold text-sm text-white">Cài Đặt Suy Luận & Gợi Ý Tác Vụ</h3>
+                    <h3 class="font-bold text-sm text-white">Cài Đặt Chế Độ & Tham Số Suy Luận</h3>
                 </div>
                 <button onclick="toggleSettingsModal(false)" class="text-slate-400 hover:text-white text-base">
                     <i class="fa-solid fa-xmark"></i>
@@ -405,9 +450,81 @@
             <!-- Modal Body (Scrollable) -->
             <div class="p-6 space-y-6 overflow-y-auto flex-1">
                 
-                <!-- Section 1: Parameters -->
-                <div class="space-y-4">
-                    <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">1. Cấu hình Tham Số Suy Luận</h4>
+                <!-- Section 1: Execution Mode Selection -->
+                <div class="space-y-3">
+                    <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-network-wired text-xs"></i>
+                        <span>1. Chế Độ Vận Hành (Execution Mode)</span>
+                    </h4>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- Option A: Single Agent -->
+                        <label class="p-3.5 rounded-xl border border-brand-border bg-slate-900/80 hover:bg-slate-800/80 cursor-pointer flex flex-col gap-2 transition-all" id="modeCardSingle">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-xs text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-user text-cyan-400"></i>
+                                    <span>Single Agent</span>
+                                </span>
+                                <input type="radio" name="execModeRadio" value="single" checked onchange="handleModeChange(this.value)" class="text-cyan-500 focus:ring-0">
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                Chạy 01 Agent suy luận phản xạ ReAct với mô hình tự chọn.
+                            </p>
+                        </label>
+
+                        <!-- Option B: Multi-Agent -->
+                        <label class="p-3.5 rounded-xl border border-brand-border bg-slate-900/80 hover:bg-slate-800/80 cursor-pointer flex flex-col gap-2 transition-all" id="modeCardMulti">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-xs text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-people-arrows text-amber-400"></i>
+                                    <span>Multi-Agent</span>
+                                </span>
+                                <input type="radio" name="execModeRadio" value="multi" onchange="handleModeChange(this.value)" class="text-amber-500 focus:ring-0">
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                Coordinator (Gemini) phân rã bài toán & Sub-Workers (Llama) chạy song song đa luồng.
+                            </p>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Section 2: Model Configuration for Single-Agent -->
+                <div id="singleModelSection" class="space-y-3 p-3.5 rounded-xl bg-slate-950/60 border border-brand-border">
+                    <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                        <span>Mô Hình Single-Agent</span>
+                        <span class="text-[10px] text-cyan-400 font-normal">Tự động nhận diện API</span>
+                    </h4>
+                    
+                    <div>
+                        <select id="modelSelect" onchange="handleModelSelect(this.value)" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-brand-border text-xs text-white focus:outline-none focus:border-cyan-500 font-mono">
+                            <option value="gemini-3.5-flash-lite">Google Gemini (gemini-3.5-flash-lite) [Mặc định]</option>
+                            <option value="meta/llama-3.2-11b-vision-instruct">Llama 3.2 11B Vision Instruct (Nvidia NIM / Ollama)</option>
+                            <option value="custom">-- Nhập tên mô hình tùy chỉnh --</option>
+                        </select>
+                    </div>
+
+                    <div id="customModelInputContainer" class="hidden mt-2">
+                        <input type="text" id="customModelInput" placeholder="Ví dụ: meta-llama/Llama-3-70b-instruct hoặc qwen2.5:7b" 
+                               class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-brand-border text-xs text-white focus:outline-none focus:border-cyan-500 font-mono">
+                    </div>
+                </div>
+
+                <!-- Multi-Agent Architecture Card (Info only) -->
+                <div id="multiAgentInfoSection" class="hidden p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5">
+                    <div class="font-bold text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span>Kiến Trúc Hybrid Multi-Agent Đang Hoạt Động</span>
+                    </div>
+                    <ul class="list-disc pl-4 text-amber-200/90 text-[11px] space-y-1">
+                        <li><strong>Master Coordinator:</strong> Gemini đảm nhận phân tích prompt, chia tách bài toán thành $N$ Subtasks và tổng hợp kết quả cuối cùng.</li>
+                        <li><strong>Sub-Workers:</strong> Llama 3.2 11B chạy song song trên các luồng <code>std::jthread</code> riêng biệt.</li>
+                        <li><strong>Giao tiếp:</strong> Trao đổi thông điệp qua hàng đợi an toàn luồng <code>AgentMessageQueue</code> (Mutex + CV).</li>
+                    </ul>
+                </div>
+
+                <!-- Section 3: Parameters -->
+                <div class="space-y-4 pt-2">
+                    <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">2. Cấu hình Tham Số Bước</h4>
                     
                     <div>
                         <div class="flex justify-between text-xs mb-1.5">
@@ -428,54 +545,54 @@
                     </div>
                 </div>
 
-                <!-- Section 2: Prompt Suggestions -->
+                <!-- Section 4: Prompt Suggestions -->
                 <div class="space-y-3 pt-4 border-t border-brand-border">
                     <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                         <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
-                        <span>2. Gợi Ý Tác Vụ Mẫu Tiếng Việt</span>
+                        <span>3. Gợi Ý Tác Vụ Mẫu</span>
                     </h4>
                     
                     <div class="space-y-2 text-xs">
-                        <button onclick="setPromptAndClose('Tính (125 * 37) + (940 / 5) và cho biết kết quả')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                        <button onclick="setPromptAndClose('Tính toán doanh thu của Chi nhánh A (120*450 USD) và Chi nhánh B (85*620 USD), so sánh xem chi nhánh nào cao hơn và lưu báo cáo vào file revenue_comparison.txt', 'multi')" class="w-full text-left p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-all text-slate-200 flex items-center gap-2.5">
+                            <span class="text-base">🤖</span>
+                            <div>
+                                <strong class="block text-amber-300">Multi-Agent: So sánh doanh thu song song 2 chi nhánh</strong>
+                                <span class="text-[11px] text-slate-400">Coordinator tự phân chia 2 Worker tính toán song song và tổng hợp</span>
+                            </div>
+                        </button>
+                        <button onclick="setPromptAndClose('Tính (125 * 37) + (940 / 5) và cho biết kết quả', 'single')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
                             <span class="text-base">🧮</span>
                             <div>
-                                <strong class="block text-slate-100">Tính biểu thức số học phức tạp</strong>
+                                <strong class="block text-slate-100">Single-Agent: Tính biểu thức số học phức tạp</strong>
                                 <span class="text-[11px] text-slate-400">Gọi công cụ calculator tính chính xác toán học</span>
                             </div>
                         </button>
-                        <button onclick="setPromptAndClose('Tạo một file có tên greeting.txt với nội dung là \'Hello OOP AI Agent 2026\'')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                        <button onclick="setPromptAndClose('Tạo một file có tên greeting.txt với nội dung là \'Hello OOP AI Agent 2026\'', 'single')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
                             <span class="text-base">📝</span>
                             <div>
-                                <strong class="block text-slate-100">Ghi nội dung ra file văn bản</strong>
+                                <strong class="block text-slate-100">Single-Agent: Ghi nội dung ra file văn bản</strong>
                                 <span class="text-[11px] text-slate-400">Gọi write_file lưu greeting.txt</span>
                             </div>
                         </button>
-                        <button onclick="setPromptAndClose('Hãy ghi nhớ vào bộ nhớ rằng: \'Sinh nhật của John là ngày 15 tháng 8\'')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                        <button onclick="setPromptAndClose('Hãy ghi nhớ vào bộ nhớ rằng: \'Sinh nhật của John là ngày 15 tháng 8\'', 'single')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
                             <span class="text-base">💾</span>
                             <div>
-                                <strong class="block text-slate-100">Lưu thông tin vào bộ nhớ SQLite</strong>
+                                <strong class="block text-slate-100">Single-Agent: Lưu thông tin vào bộ nhớ SQLite</strong>
                                 <span class="text-[11px] text-slate-400">Gọi memory_save lưu trí nhớ dài hạn</span>
                             </div>
                         </button>
-                        <button onclick="setPromptAndClose('Tìm trong bộ nhớ xem sinh nhật của John là ngày nào và trả lời ngắn gọn')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                        <button onclick="setPromptAndClose('Tìm trong bộ nhớ xem sinh nhật của John là ngày nào và trả lời ngắn gọn', 'single')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
                             <span class="text-base">🔍</span>
                             <div>
-                                <strong class="block text-slate-100">Tìm kiếm bộ nhớ và suy luận</strong>
+                                <strong class="block text-slate-100">Single-Agent: Tìm kiếm bộ nhớ và suy luận</strong>
                                 <span class="text-[11px] text-slate-400">Gọi memory_search với thuật toán Relevance Scoring</span>
                             </div>
                         </button>
-                        <button onclick="setPromptAndClose('Tìm kiếm trên web xem ai là hiệu trưởng hiện tại của Trường Đại học Khoa học Tự nhiên ĐHQG-HCM')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
+                        <button onclick="setPromptAndClose('Tìm kiếm trên web xem ai là hiệu trưởng hiện tại của Trường Đại học Khoa học Tự nhiên ĐHQG-HCM', 'single')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
                             <span class="text-base">🌐</span>
                             <div>
-                                <strong class="block text-slate-100">Tìm kiếm thông tin trên Web</strong>
+                                <strong class="block text-slate-100">Single-Agent: Tìm kiếm thông tin trên Web</strong>
                                 <span class="text-[11px] text-slate-400">Gọi web_search tra cứu DuckDuckGo</span>
-                            </div>
-                        </button>
-                        <button onclick="setPromptAndClose('Tìm kiếm thông tin năm phát hành chuẩn C++23. Sau khi có kết quả, lưu ghi chú này vào memory và đồng thời tạo file \'cpp23_note.txt\' chứa năm đó.')" class="w-full text-left p-3 rounded-xl bg-slate-900/80 border border-brand-border hover:border-cyan-500/50 hover:bg-slate-800 transition-all text-slate-200 flex items-center gap-2.5">
-                            <span class="text-base">⚡</span>
-                            <div>
-                                <strong class="block text-slate-100">Pipeline Đa Bước: Web → Memory → File</strong>
-                                <span class="text-[11px] text-slate-400">Chuỗi hành động phức tạp tự động</span>
                             </div>
                         </button>
                     </div>
@@ -495,6 +612,12 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        // State
+        let currentMode = 'single'; // 'single' or 'multi'
+        let currentSelectedModel = '';
+        let serverDefaultModel = 'gemini-3.5-flash-lite';
+        let serverWorkerModel = 'meta/llama-3.2-11b-vision-instruct';
+
         // Modal Control
         function toggleSettingsModal(show) {
             const modal = document.getElementById('settingsModal');
@@ -505,7 +628,83 @@
             }
         }
 
-        function setPromptAndClose(text) {
+        function handleModeChange(mode) {
+            currentMode = mode;
+            updateModeUI();
+        }
+
+        function setExecutionMode(mode) {
+            currentMode = mode;
+            const radio = document.querySelector(`input[name="execModeRadio"][value="${mode}"]`);
+            if (radio) radio.checked = true;
+            updateModeUI();
+        }
+
+        function handleModelSelect(val) {
+            const customContainer = document.getElementById('customModelInputContainer');
+            if (val === 'custom') {
+                customContainer.classList.remove('hidden');
+                currentSelectedModel = document.getElementById('customModelInput').value.trim();
+            } else {
+                customContainer.classList.add('hidden');
+                currentSelectedModel = val;
+            }
+            updateModeUI();
+        }
+
+        function updateModeUI() {
+            const quickSingle = document.getElementById('quickModeSingle');
+            const quickMulti = document.getElementById('quickModeMulti');
+            const cardSingle = document.getElementById('modeCardSingle');
+            const cardMulti = document.getElementById('modeCardMulti');
+            const singleSection = document.getElementById('singleModelSection');
+            const multiSection = document.getElementById('multiAgentInfoSection');
+            const chatTitle = document.getElementById('chatModeTitle');
+            const descBadge = document.getElementById('activeModeDescBadge');
+            const modelBadge = document.getElementById('modelBadge');
+            const sidebarBadge = document.getElementById('sidebarModeBadge');
+            const statusDot = document.getElementById('liveStatusDot');
+
+            if (currentMode === 'multi') {
+                quickSingle.className = 'px-2.5 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5';
+                quickMulti.className = 'px-2.5 py-1 rounded-lg font-medium transition-all text-amber-400 bg-amber-500/20 border border-amber-500/30 flex items-center gap-1.5 shadow-sm';
+                
+                cardSingle.classList.remove('border-cyan-500/60', 'bg-slate-800/80');
+                cardMulti.classList.add('border-amber-500/60', 'bg-slate-800/80');
+
+                singleSection.classList.add('hidden');
+                multiSection.classList.remove('hidden');
+
+                chatTitle.innerText = 'Luồng Điều Phối: Hybrid Multi-Agent Coordination';
+                descBadge.innerText = 'Master: Gemini ↔ Workers: Llama';
+                descBadge.className = 'hidden sm:inline px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                modelBadge.innerText = 'Multi-Agent (Gemini + Llama)';
+                sidebarBadge.innerText = 'Multi-Agent';
+                sidebarBadge.className = 'text-amber-400 font-semibold';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50';
+            } else {
+                quickSingle.className = 'px-2.5 py-1 rounded-lg font-medium transition-all text-cyan-400 bg-cyan-500/20 border border-cyan-500/30 flex items-center gap-1.5 shadow-sm';
+                quickMulti.className = 'px-2.5 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5';
+
+                cardSingle.classList.add('border-cyan-500/60', 'bg-slate-800/80');
+                cardMulti.classList.remove('border-amber-500/60', 'bg-slate-800/80');
+
+                singleSection.classList.remove('hidden');
+                multiSection.classList.add('hidden');
+
+                const chosen = currentSelectedModel || serverDefaultModel;
+                chatTitle.innerText = 'Luồng Suy Luận: Single Agent ReAct';
+                descBadge.innerText = `Model: ${chosen}`;
+                descBadge.className = 'hidden sm:inline px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20';
+                modelBadge.innerText = chosen;
+                sidebarBadge.innerText = 'Single Agent';
+                sidebarBadge.className = 'text-cyan-400 font-semibold';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50';
+            }
+        }
+
+        function setPromptAndClose(text, mode = null) {
+            if (mode) setExecutionMode(mode);
             document.getElementById('userInput').value = text;
             toggleSettingsModal(false);
             switchTab('chat');
@@ -531,15 +730,13 @@
 
         function clearChat() {
             document.getElementById('chatTimeline').innerHTML = `
-                <div class="flex gap-3.5 items-start w-full">
-                    <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0 text-cyan-400 shadow-sm">
-                        <i class="fa-solid fa-robot text-xs"></i>
+                <div class="flex gap-3 items-start w-full msg-animated">
+                    <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0 text-cyan-400 shadow-sm mt-0.5 text-xs">
+                        <i class="fa-solid fa-robot"></i>
                     </div>
-                    <div class="flex flex-col items-start space-y-1.5 max-w-[85%]">
+                    <div class="flex flex-col items-start space-y-1 max-w-[85%] w-fit">
                         <div class="font-semibold text-[11px] text-slate-400">Trợ Lý C++ AI Agent</div>
-                        <div class="bubble-agent p-4 rounded-2xl text-xs md:text-sm leading-relaxed text-slate-200 shadow-md">
-                            Nhật ký hội thoại đã được làm mới. Hãy nhập yêu cầu của bạn bên dưới!
-                        </div>
+                        <div class="bubble-agent text-xs md:text-sm text-slate-200">Nhật ký hội thoại đã được làm mới. Hãy nhập yêu cầu của bạn bên dưới!</div>
                     </div>
                 </div>
             `;
@@ -561,6 +758,8 @@
         }
 
         // Handle SSE Chat Stream
+        let blockCounter = 0;
+
         async function handleSend(e) {
             if (e) e.preventDefault();
             const input = document.getElementById('userInput');
@@ -574,14 +773,12 @@
 
             const timeline = document.getElementById('chatTimeline');
 
-            // 1. Append User Message (Scales dynamically fit to message length up to 80% width)
+            // 1. Append User Message (Auto-fits text length neatly)
             timeline.innerHTML += `
-                <div class="flex gap-3 items-start justify-end w-full">
-                    <div class="bubble-user p-3.5 md:p-4 rounded-2xl rounded-tr-sm text-xs md:text-sm text-white leading-relaxed shadow-lg whitespace-pre-wrap">
-                        ${escapeHtml(prompt)}
-                    </div>
-                    <div class="w-8 h-8 rounded-xl bg-cyan-600 flex items-center justify-center shrink-0 text-white shadow-md shadow-cyan-600/30">
-                        <i class="fa-solid fa-user text-xs"></i>
+                <div class="flex gap-2.5 items-start justify-end w-full msg-animated">
+                    <div class="bubble-user text-xs md:text-sm text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(prompt)}</div>
+                    <div class="w-7 h-7 rounded-lg bg-cyan-600 flex items-center justify-center shrink-0 text-white shadow-md shadow-cyan-600/30 mt-0.5 text-xs">
+                        <i class="fa-solid fa-user"></i>
                     </div>
                 </div>
             `;
@@ -589,15 +786,17 @@
 
             // 2. Prepare Agent Container
             const agentTurnId = 'turn-' + Date.now();
+            const isMulti = (currentMode === 'multi');
+
             timeline.innerHTML += `
                 <div id="${agentTurnId}" class="flex gap-3 items-start w-full">
-                    <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 shadow-sm">
-                        <i class="fa-solid fa-microchip text-xs"></i>
+                    <div class="w-8 h-8 rounded-xl ${isMulti ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400' : 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'} flex items-center justify-center shrink-0 shadow-sm">
+                        <i class="fa-solid ${isMulti ? 'fa-people-arrows' : 'fa-microchip'} text-xs"></i>
                     </div>
-                    <div class="flex flex-col items-start space-y-3 steps-container max-w-[85%]">
+                    <div class="flex flex-col items-start space-y-3 steps-container max-w-[88%] w-fit">
                         <div class="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
-                            <span>Vết suy luận ReAct</span>
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span>${isMulti ? 'Tiến trình Multi-Agent Coordination' : 'Vết suy luận ReAct'}</span>
+                            <span class="w-2 h-2 rounded-full ${isMulti ? 'bg-amber-400' : 'bg-emerald-400'} animate-ping"></span>
                         </div>
                     </div>
                 </div>
@@ -608,11 +807,27 @@
             const maxSteps = parseInt(document.getElementById('maxStepsInput').value);
             const enablePlanning = document.getElementById('enablePlanningInput').checked;
 
+            let chosenModel = '';
+            if (currentMode === 'single') {
+                const sel = document.getElementById('modelSelect').value;
+                if (sel === 'custom') {
+                    chosenModel = document.getElementById('customModelInput').value.trim();
+                } else {
+                    chosenModel = sel;
+                }
+            }
+
             try {
                 const response = await fetch('/api/chat/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, max_steps: maxSteps, enable_planning: enablePlanning })
+                    body: JSON.stringify({
+                        prompt,
+                        mode: currentMode,
+                        model: chosenModel,
+                        max_steps: maxSteps,
+                        enable_planning: enablePlanning
+                    })
                 });
 
                 const reader = response.body.getReader();
@@ -639,8 +854,26 @@
                             if (eventType === 'step') {
                                 renderStepCard(stepsContainer, data);
                                 timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'multi_start') {
+                                renderMultiStartCard(stepsContainer, data.message);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'multi_plan') {
+                                renderMultiPlanCard(stepsContainer, data);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'subagent_start') {
+                                renderSubAgentStartCard(stepsContainer, data);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'subagent_step') {
+                                renderSubAgentStepCard(stepsContainer, data);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'subagent_done') {
+                                renderSubAgentDoneCard(stepsContainer, data);
+                                timeline.scrollTop = timeline.scrollHeight;
+                            } else if (eventType === 'multi_synthesis_start') {
+                                renderMultiSynthesisStart(stepsContainer, data.message);
+                                timeline.scrollTop = timeline.scrollHeight;
                             } else if (eventType === 'final') {
-                                renderFinalAnswer(stepsContainer, data.output, data.success);
+                                renderFinalAnswer(stepsContainer, data.output, data.success, data.is_multi);
                                 timeline.scrollTop = timeline.scrollHeight;
                             }
                         }
@@ -654,8 +887,144 @@
             }
         }
 
-        // Render Step Cards with Auto-fit Content Width
-        let blockCounter = 0;
+        // =========================================================================
+        // MULTI-AGENT UI RENDERERS
+        // =========================================================================
+
+        function renderMultiStartCard(container, message) {
+            const card = document.createElement('div');
+            card.className = 'p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs shadow-md flex items-center gap-2.5 w-fit max-w-full';
+            card.innerHTML = `
+                <i class="fa-solid fa-brain text-amber-400 text-sm animate-pulse"></i>
+                <span class="font-medium">${escapeHtml(message)}</span>
+            `;
+            container.appendChild(card);
+        }
+
+        function renderMultiPlanCard(container, planData) {
+            const card = document.createElement('div');
+            card.className = 'p-4 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-3 text-xs shadow-lg w-fit max-w-full';
+            
+            let subtasksHtml = '';
+            if (planData.subtasks && planData.subtasks.length > 0) {
+                planData.subtasks.forEach((st, idx) => {
+                    const badgeColor = (idx % 2 === 0) ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' : 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+                    subtasksHtml += `
+                        <div class="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 flex items-start gap-2.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono border ${badgeColor} shrink-0">${st.agent_id || `Worker_${idx+1}`}</span>
+                            <span class="text-slate-300 leading-relaxed">${escapeHtml(st.instruction)}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between border-b border-brand-border pb-2">
+                    <span class="font-bold text-amber-400 flex items-center gap-2 text-xs uppercase tracking-wider">
+                        <i class="fa-solid fa-sitemap"></i>
+                        <span>Kế Hoạch Phân Rã Sub-Agents (${planData.subtasks ? planData.subtasks.length : 2} Workers)</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-semibold">Gemini Dynamic Fan-Out</span>
+                </div>
+                <div class="space-y-2">
+                    ${subtasksHtml}
+                </div>
+                ${planData.aggregation_goal ? `<div class="text-[11px] text-slate-400 pt-1"><strong>Mục tiêu tổng hợp:</strong> ${escapeHtml(planData.aggregation_goal)}</div>` : ''}
+            `;
+            container.appendChild(card);
+        }
+
+        function renderSubAgentStartCard(container, data) {
+            const card = document.createElement('div');
+            card.className = 'p-2.5 px-3.5 rounded-lg bg-slate-900/60 border border-slate-800 text-xs text-slate-300 flex items-center gap-2 w-fit max-w-full';
+            card.innerHTML = `
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <strong class="font-mono text-cyan-400">[${escapeHtml(data.agentId)}]</strong>
+                <span>bắt đầu thực thi subtask song song...</span>
+            `;
+            container.appendChild(card);
+        }
+
+        function renderSubAgentStepCard(container, step) {
+            blockCounter++;
+            const card = document.createElement('div');
+            const isWorker1 = step.agentId === 'Worker_1' || step.agentId?.includes('1');
+            const borderCol = isWorker1 ? 'border-cyan-500/30' : 'border-purple-500/30';
+            const badgeCol = isWorker1 ? 'bg-cyan-500/20 text-cyan-300' : 'bg-purple-500/20 text-purple-300';
+
+            card.className = `p-3.5 rounded-xl bg-slate-900/80 border ${borderCol} space-y-2 text-xs shadow-md w-fit max-w-full`;
+
+            let html = `
+                <div class="flex items-center justify-between text-slate-400 font-mono text-[11px] gap-6">
+                    <span class="font-bold flex items-center gap-1.5">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${badgeCol}">${escapeHtml(step.agentId || 'Worker')}</span>
+                        <span class="text-slate-300">Bước ${step.stepNumber}</span>
+                    </span>
+                    <div class="flex items-center gap-3 text-slate-500">
+                        ${step.tokensUsed ? `<span class="text-amber-400/90">${step.tokensUsed} tok</span>` : ''}
+                        <span>${step.latencyMs} ms</span>
+                    </div>
+                </div>
+            `;
+
+            if (step.thought) {
+                html += `
+                    <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 leading-relaxed whitespace-pre-wrap break-words">
+                        <strong class="text-amber-400 block mb-0.5 text-[10px] uppercase tracking-wider">Thought:</strong>
+                        ${escapeHtml(step.thought)}
+                    </div>
+                `;
+            }
+
+            if (step.toolName && step.toolName !== 'finish') {
+                const argsStr = JSON.stringify(step.toolArgs, null, 2) || '{}';
+                html += `
+                    <div class="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-200">
+                        <div class="font-mono font-bold text-cyan-400 mb-1 text-[11px]">Gọi Tool: <u class="text-white">${step.toolName}</u></div>
+                        <pre class="code-font text-[10px] bg-slate-950 p-2 rounded text-slate-300 overflow-x-auto whitespace-pre-wrap">${escapeHtml(argsStr)}</pre>
+                    </div>
+                `;
+            }
+
+            if (step.observation) {
+                html += `
+                    <div class="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">
+                        <strong class="text-slate-400 block mb-0.5 text-[10px] uppercase tracking-wider">Observation:</strong>
+                        <div class="code-font text-[10px] whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(step.observation)}</div>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = html;
+            container.appendChild(card);
+        }
+
+        function renderSubAgentDoneCard(container, data) {
+            const card = document.createElement('div');
+            card.className = 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1 w-fit max-w-full';
+            card.innerHTML = `
+                <div class="font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Sub-Agent <strong>[${escapeHtml(data.agentId)}]</strong> đã hoàn thành & gửi dữ liệu vào MessageQueue</span>
+                </div>
+                <div class="text-slate-300 text-[11px] whitespace-pre-wrap break-words leading-relaxed pl-4 border-l border-emerald-500/40">${escapeHtml(data.content)}</div>
+            `;
+            container.appendChild(card);
+        }
+
+        function renderMultiSynthesisStart(container, message) {
+            const card = document.createElement('div');
+            card.className = 'p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs shadow-md flex items-center gap-2.5 w-fit max-w-full';
+            card.innerHTML = `
+                <i class="fa-solid fa-wand-magic-sparkles text-cyan-400 text-sm animate-bounce"></i>
+                <span class="font-semibold">${escapeHtml(message)}</span>
+            `;
+            container.appendChild(card);
+        }
+
+        // =========================================================================
+        // SINGLE-AGENT STEP RENDERER
+        // =========================================================================
 
         function renderStepCard(container, step) {
             blockCounter++;
@@ -675,7 +1044,6 @@
                 </div>
             `;
 
-            // 1. Thought
             if (step.thought) {
                 html += `
                     <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200 leading-relaxed whitespace-pre-wrap break-words w-fit max-w-full">
@@ -685,7 +1053,6 @@
                 `;
             }
 
-            // 2. Action / Tool Call (Collapsible if long JSON)
             if (step.toolName && step.toolName !== 'finish') {
                 const argsStr = JSON.stringify(step.toolArgs, null, 2) || '{}';
                 const isLong = argsStr.split('\n').length > 5 || argsStr.length > 200;
@@ -705,7 +1072,6 @@
                 `;
             }
 
-            // 3. Observation (Collapsible if long text)
             if (step.observation) {
                 blockCounter++;
                 const obsStr = step.observation;
@@ -730,16 +1096,16 @@
             container.appendChild(card);
         }
 
-        // Render Final Output (Auto-fit Content Width)
-        function renderFinalAnswer(container, text, success) {
+        // Render Final Answer (Auto-fit Content & Responsive Bubble for Bot)
+        function renderFinalAnswer(container, text, success, isMulti = false) {
             const div = document.createElement('div');
-            div.className = `p-4 md:p-5 rounded-2xl ${success ? 'bg-gradient-to-br from-emerald-950/70 to-slate-900 border border-emerald-500/40 text-emerald-100' : 'bg-rose-950/70 border border-rose-500/40 text-rose-100'} text-xs md:text-sm leading-relaxed space-y-2 mt-2 shadow-xl break-words whitespace-pre-wrap w-fit max-w-full`;
+            div.className = `bubble-agent rounded-2xl rounded-tl-sm ${success ? 'bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-500/40 text-emerald-100 shadow-emerald-950/30' : 'bg-rose-950/80 border border-rose-500/40 text-rose-100 shadow-rose-950/30'} text-xs md:text-sm leading-relaxed space-y-2 mt-2 shadow-xl break-words msg-animated`;
             div.innerHTML = `
                 <div class="font-bold flex items-center gap-2 ${success ? 'text-emerald-400' : 'text-rose-400'} text-xs uppercase tracking-wider">
                     <i class="fa-solid ${success ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>
-                    <span>${success ? 'KẾT QUẢ CUỐI CÙNG' : 'LỖI THỰC THI'}</span>
+                    <span>${success ? (isMulti ? 'KẾT QUẢ TỔNG HỢP MULTI-AGENT' : 'KẾT QUẢ CUỐI CÙNG') : 'LỖI THỰC THI'}</span>
                 </div>
-                <div class="whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(text)}</div>
+                <div class="whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(text.trim())}</div>
             `;
             container.appendChild(div);
         }
@@ -874,19 +1240,19 @@
                 const res = await fetch('/api/status');
                 if (res.ok) {
                     const data = await res.json();
-                    const badge = document.getElementById('modelBadge');
-                    if (badge && data.model) {
-                        badge.innerText = data.model;
-                    }
+                    if (data.model) serverDefaultModel = data.model;
+                    if (data.worker_model) serverWorkerModel = data.worker_model;
+                    updateModeUI();
                 }
             } catch (err) {
                 console.warn("Không thể tải trạng thái hệ thống từ /api/status:", err);
             }
         }
     
-        // Gọi ngay khi mở trang
+        // Khởi tạo khi mở trang
         document.addEventListener('DOMContentLoaded', () => {
             updateSystemStatus();
+            updateModeUI();
         });
     </script>
 </body>

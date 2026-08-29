@@ -65,6 +65,15 @@ HarnessRunner::HarnessRunner(
 std::expected<bool, std::string> HarnessRunner::loadTasks(const std::string& tasksFilePath) {
     std::ifstream file(tasksFilePath);
     if (!file.is_open()) {
+        file.open("AI_Agent/" + tasksFilePath);
+    }
+    if (!file.is_open()) {
+        file.open("AI_Agent/benchmark/tasks.json");
+    }
+    if (!file.is_open()) {
+        file.open("benchmark/tasks.json");
+    }
+    if (!file.is_open()) {
         return std::unexpected(std::format("Cannot open tasks file: {}", tasksFilePath));
     }
 

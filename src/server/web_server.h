@@ -18,6 +18,7 @@
 class WebServer {
 private:
     std::shared_ptr<LLMClient> _client;
+    std::shared_ptr<LLMClient> _workerClient;
     std::shared_ptr<Environment> _env;
     ToolRegistry _registry;
     int _port{8080};
@@ -30,7 +31,8 @@ public:
         std::shared_ptr<LLMClient> client,
         std::shared_ptr<Environment> env = nullptr,
         int port = 8080,
-        std::string webDir = "web"
+        std::string webDir = "web",
+        std::shared_ptr<LLMClient> workerClient = nullptr
     );
 
     // Khởi động Web Server (Lắng nghe cổng HTTP)

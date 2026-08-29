@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
 
         if (arg1 == "--web" || arg1 == "-w") {
             printBanner();
-            WebServer server(client, env, 8080, "web");
+            WebServer server(client, env, 8080, "web", worker_client);
             server.start();
             return 0;
         }
@@ -284,7 +284,7 @@ int main(int argc, char* argv[]) {
                 cerr << "\n=== LOI MULTI-AGENT GUI AGENT ===\n" << res.error() << "\n\n";
             }
         } else if (choice == 5) {
-            WebServer server(client, env, 8080, "web");
+            WebServer server(client, env, 8080, "web", worker_client);
             server.start();
         } else if (choice == 6) {
             cout << "\nNhap nhiem vu phuc tap can Multi-Agent phan chia xu ly (hoac Enter de dung demo mac dinh):\n> ";
