@@ -10,6 +10,8 @@
 #include "agent/AgentLoop.h"
 #include "client/llm_client.h"
 #include "client/ollama_client.h"
+#include "client/gemini_client.h"
+#include "client/llm_client_factory.h"
 #include "environment/environment.h"
 #include "environment/native_environment.h"
 #include "environment/sandbox_environment.h"
@@ -41,16 +43,15 @@ void printHelp(const char* progName) {
 }
 
 int main(int argc, char* argv[]) {
-    // 1. Khai báo thông tin API
-    // string model = "meta/llama-3.2-11b-vision-instruct";
-    // string base_url = "https://integrate.api.nvidia.com/v1/chat/completions";
+    // 1. Khai báo thông tin API từ Config và Environment
     string model = Config::instance()->llm().model;
     string base_url = Config::instance()->llm().baseUrl;
-    string api_key = getEnvVar("LLAMA_API_KEY");
+    string api_key = getEnvVar("GEMINI_API_KEY");
+    if (api_key.empty()) api_key = getEnvVar("LLAMA_API_KEY");
     if (api_key.empty()) api_key = getEnvVar("OLLAMA_API_KEY");
 
-    // 2. Khởi tạo LLM Client (Sử dụng con trỏ Lớp cơ sở - Abstraction)
-    shared_ptr<LLMClient> client = make_shared<OllamaClient>(model, base_url, api_key);
+    // 2. Khởi tạo LLM Client thông qua Factory Pattern (Hỗ trợ Ollama, Gemini, OpenAI, NIM)
+    shared_ptr<LLMClient> client = LLMClientFactory::createClient(model, base_url, api_key);
 
     // 3. Khởi tạo Môi trường thực thi (Environment Abstraction)
     shared_ptr<Environment> env = make_shared<NativeEnvironment>();

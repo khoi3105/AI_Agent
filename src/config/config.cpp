@@ -28,6 +28,9 @@ Config::Config() {
     if (data.contains("llm.STREAM")) _llm.stream = (data.at("llm.STREAM") == "true");
     else if (data.contains("llm.stream")) _llm.stream = (data.at("llm.stream") == "true");
 
+    if (data.contains("llm.RPM")) _llm.rpm = std::stoi(data.at("llm.RPM"));
+    else if (data.contains("llm.rpm")) _llm.rpm = std::stoi(data.at("llm.rpm"));
+
     // =========================
     // TOOL CONFIG
     // =========================
@@ -50,6 +53,9 @@ Config::Config() {
 
     if (data.contains("http.GET_TIMEOUT")) _http.getTimeout = std::stol(data.at("http.GET_TIMEOUT"));
     else if (data.contains("http.get_timeout")) _http.getTimeout = std::stol(data.at("http.get_timeout"));
+
+    if (data.contains("http.RPM")) _http.rpm = std::stoi(data.at("http.RPM"));
+    else if (data.contains("http.rpm")) _http.rpm = std::stoi(data.at("http.rpm"));
 }
 
 // =========================
