@@ -37,6 +37,7 @@ void printHelp(const char* progName) {
     cout << "  --web, -w               : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)\n";
     cout << "  --gui, -g               : Khởi chạy Desktop GUI Dashboard (Dear ImGui)\n";
     cout << "  --gui-agent, -a         : Khởi chạy Desktop GUI Agent (Computer Use & Automation)\n";
+    cout << "  --multi-agent, -m       : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
     cout << "  --eval, -b              : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)\n";
     cout << "  --task <id>             : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)\n";
     cout << "  --help, -h              : Hiển thị hướng dẫn sử dụng này\n";
@@ -45,20 +46,38 @@ void printHelp(const char* progName) {
 }
 
 int main(int argc, char* argv[]) {
-    // 1. Khai báo thông tin API từ Config và Environment
+    // 1. Khai báo thông tin API từ Config và Environment cho Coordinator (Gemini / Default)
     string model = Config::instance()->llm().model;
     string base_url = Config::instance()->llm().baseUrl;
     string api_key = getEnvVar("GEMINI_API_KEY");
     if (api_key.empty()) api_key = getEnvVar("LLAMA_API_KEY");
     if (api_key.empty()) api_key = getEnvVar("OLLAMA_API_KEY");
 
-    // 2. Khởi tạo LLM Client thông qua Factory Pattern (Hỗ trợ Ollama, Gemini, OpenAI, NIM)
+    // 2. Khởi tạo LLM Client thông qua Factory Pattern
     shared_ptr<LLMClient> client = LLMClientFactory::createClient(model, base_url, api_key);
 
-    // 3. Khởi tạo Môi trường thực thi (Environment Abstraction)
+    // 3. Khai báo thông tin API cho Worker Sub-Agents (Llama / Ollama) từ [multi] section & .env
+    string worker_model = Config::instance()->multi().workerModel;
+    string worker_base_url = Config::instance()->multi().workerBaseUrl;
+    string worker_api_key = Config::instance()->multi().workerApiKey;
+    if (worker_api_key.empty()) worker_api_key = getEnvVar("LLAMA_API_KEY");
+    if (worker_api_key.empty()) worker_api_key = getEnvVar("OLLAMA_API_KEY");
+    
+    if (worker_base_url.empty()) {
+        if (!worker_api_key.empty() && worker_api_key.rfind("nvapi-", 0) == 0) {
+            worker_base_url = "https://integrate.api.nvidia.com/v1/chat/completions";
+        } else {
+            worker_base_url = "http://localhost:11434/v1/chat/completions";
+        }
+    }
+    if (worker_model.empty()) worker_model = "meta/llama-3.2-11b-vision-instruct";
+
+    shared_ptr<LLMClient> worker_client = LLMClientFactory::createClient(worker_model, worker_base_url, worker_api_key);
+
+    // 4. Khởi tạo Môi trường thực thi (Environment Abstraction)
     shared_ptr<Environment> env = make_shared<NativeEnvironment>();
 
-    // 4. Xử lý tham số dòng lệnh (CLI Arguments Parsing)
+    // 5. Xử lý tham số dòng lệnh (CLI Arguments Parsing)
     if (argc > 1) {
         string arg1 = argv[1];
 
@@ -107,10 +126,35 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        if (arg1 == "--multi-agent" || arg1 == "-m" || arg1 == "multi") {
+            printBanner();
+            cout << "\n======================================================\n";
+            cout << "     KHOI DONG HYBRID MULTI-AGENT COORDINATION        \n";
+            cout << "  (Gemini: Coordinator/Planner | Llama: Sub-Workers) \n";
+            cout << "======================================================\n";
+
+            string multi_task = "Tính toán doanh thu của Chi nhánh A (120*450 USD) và Chi nhánh B (85*620 USD), so sánh xem chi nhánh nào cao hơn và lưu báo cáo vào file revenue_comparison.txt";
+            if (argc > 2) {
+                multi_task = argv[2];
+            }
+
+            cout << "[Yeu cau]: \"" << multi_task << "\"\n\n";
+
+            HarnessRunner runner(client, env, "benchmark/results", worker_client);
+            auto res = runner.coordinateTask(multi_task);
+
+            if (res.has_value()) {
+                cout << "\n=== KET QUA HOAN TAT MULTI-AGENT ===\n" << *res << "\n";
+            } else {
+                cerr << "\n=== LOI THUC THI MULTI-AGENT ===\n" << res.error() << "\n";
+            }
+            return 0;
+        }
+
         if (arg1 == "--eval" || arg1 == "-b" || arg1 == "benchmark") {
             printBanner();
             cout << "[Benchmark]: Dang khoi dong toan bo danh sach danh gia 10 Tasks...\n";
-            HarnessRunner runner(client, env, "benchmark/results");
+            HarnessRunner runner(client, env, "benchmark/results", worker_client);
             auto load_res = runner.loadTasks("benchmark/tasks.json");
             if (!load_res.has_value()) {
                 cerr << format("[ERROR]: Khong the nap file tasks.json: {}\n", load_res.error());
@@ -129,7 +173,7 @@ int main(int argc, char* argv[]) {
             string taskId = argv[2];
             printBanner();
             cout << format("[Benchmark]: Dang tim kiem va chay rieng Task: {}...\n", taskId);
-            HarnessRunner runner(client, env, "benchmark/results");
+            HarnessRunner runner(client, env, "benchmark/results", worker_client);
             auto load_res = runner.loadTasks("benchmark/tasks.json");
             if (!load_res.has_value()) {
                 cerr << format("[ERROR]: Khong the nap file tasks.json: {}\n", load_res.error());
@@ -179,9 +223,10 @@ int main(int argc, char* argv[]) {
         cout << "4. Khoi chay GUI Agent Desktop Automation (Computer Use)\n";
         cout << "5. Khoi chay Web GUI Dashboard (Trình duyệt - Tiếng Việt)\n";
         cout << "6. Khoi chay Desktop GUI Dashboard (Dear ImGui)\n";
-        cout << "7. Thoat chuong trinh\n";
+        cout << "7. Khoi chay Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
+        cout << "8. Thoat chuong trinh\n";
         cout << "-----------------------------------------------------------------\n";
-        cout << "Lua chon cua ban [1-7]: ";
+        cout << "Lua chon cua ban [1-8]: ";
 
         int choice = 0;
         if (!(cin >> choice)) {
@@ -208,7 +253,7 @@ int main(int argc, char* argv[]) {
             }
         } else if (choice == 2) {
             cout << "\n[Benchmark]: Bat dau danh gia toan bo 10 Tasks...\n";
-            HarnessRunner runner(client, env, "benchmark/results");
+            HarnessRunner runner(client, env, "benchmark/results", worker_client);
             if (runner.loadTasks("benchmark/tasks.json").has_value()) {
                 runner.runBatch();
             }
@@ -216,7 +261,7 @@ int main(int argc, char* argv[]) {
             cout << "\nNhap Task ID (vi du: task_001, task_005, task_010):\n> ";
             string taskId;
             getline(cin, taskId);
-            HarnessRunner runner(client, env, "benchmark/results");
+            HarnessRunner runner(client, env, "benchmark/results", worker_client);
             if (runner.loadTasks("benchmark/tasks.json").has_value()) {
                 bool found = false;
                 for (const auto& task : runner.getTasks()) {
@@ -253,6 +298,20 @@ int main(int argc, char* argv[]) {
             AgentGUI gui(client, env);
             gui.run();
         } else if (choice == 7) {
+            cout << "\nNhap nhiem vu phuc tap can Multi-Agent phan chia xu ly (hoac Enter de dung demo mac dinh):\n> ";
+            string multi_task;
+            getline(cin, multi_task);
+            if (multi_task.empty()) {
+                multi_task = "Tính toán doanh thu của Chi nhánh A (120*450 USD) và Chi nhánh B (85*620 USD), so sánh xem chi nhánh nào cao hơn và lưu báo cáo vào file revenue_comparison.txt";
+            }
+            HarnessRunner runner(client, env, "benchmark/results", worker_client);
+            auto res = runner.coordinateTask(multi_task);
+            if (res.has_value()) {
+                cout << "\n=== KET QUA HOAN TAT MULTI-AGENT ===\n" << *res << "\n\n";
+            } else {
+                cerr << "\n=== LOI MULTI-AGENT ===\n" << res.error() << "\n\n";
+            }
+        } else if (choice == 8) {
             cout << "\nTam biet! Cam on ban da su dung AI Agent.\n";
             break;
         }

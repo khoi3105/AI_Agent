@@ -1,8 +1,18 @@
 #include "xdo_executor.h"
 #include <format>
+#include <cstdlib>
+#include <string>
 
 XdoExecutor::XdoExecutor(const char* display) {
-    _xdo = xdo_new(display);
+    const char* d = display;
+    if (!d) {
+        d = std::getenv("DISPLAY");
+    }
+    if (d && std::string(d) != "") {
+        _xdo = xdo_new(d);
+    } else {
+        _xdo = nullptr;
+    }
 }
 
 XdoExecutor::~XdoExecutor() {

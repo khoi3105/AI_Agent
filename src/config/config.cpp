@@ -4,7 +4,7 @@
 #include <string>
 
 Config::Config() {
-    auto data = ConfigLoader::load("config.txt");
+    auto data = ConfigLoader::load("config.ini");
 
     // =========================
     // LLM CONFIG
@@ -30,6 +30,39 @@ Config::Config() {
 
     if (data.contains("llm.RPM")) _llm.rpm = std::stoi(data.at("llm.RPM"));
     else if (data.contains("llm.rpm")) _llm.rpm = std::stoi(data.at("llm.rpm"));
+
+    // =========================
+    // MULTI-AGENT WORKER CONFIG
+    // =========================
+
+    if (data.contains("multi.WORKER_BASE_URL")) _multi.workerBaseUrl = data.at("multi.WORKER_BASE_URL");
+    else if (data.contains("multi.worker_base_url")) _multi.workerBaseUrl = data.at("multi.worker_base_url");
+
+    if (data.contains("multi.WORKER_MODEL")) _multi.workerModel = data.at("multi.WORKER_MODEL");
+    else if (data.contains("multi.worker_model")) _multi.workerModel = data.at("multi.worker_model");
+
+    if (data.contains("multi.WORKER_API_KEY")) _multi.workerApiKey = data.at("multi.WORKER_API_KEY");
+    else if (data.contains("multi.worker_api_key")) _multi.workerApiKey = data.at("multi.worker_api_key");
+
+    if (data.contains("multi.WORKER_TEMPERATURE") && !data.at("multi.WORKER_TEMPERATURE").empty()) 
+        _multi.workerTemperature = std::stod(data.at("multi.WORKER_TEMPERATURE"));
+    else if (data.contains("multi.worker_temperature") && !data.at("multi.worker_temperature").empty()) 
+        _multi.workerTemperature = std::stod(data.at("multi.worker_temperature"));
+
+    if (data.contains("multi.WORKER_TOP_P") && !data.at("multi.WORKER_TOP_P").empty()) 
+        _multi.workerTopP = std::stod(data.at("multi.WORKER_TOP_P"));
+    else if (data.contains("multi.worker_top_p") && !data.at("multi.worker_top_p").empty()) 
+        _multi.workerTopP = std::stod(data.at("multi.worker_top_p"));
+
+    if (data.contains("multi.WORKER_MAX_TOKENS") && !data.at("multi.WORKER_MAX_TOKENS").empty()) 
+        _multi.workerMaxTokens = std::stoi(data.at("multi.WORKER_MAX_TOKENS"));
+    else if (data.contains("multi.worker_max_tokens") && !data.at("multi.worker_max_tokens").empty()) 
+        _multi.workerMaxTokens = std::stoi(data.at("multi.worker_max_tokens"));
+
+    if (data.contains("multi.WORKER_RPM") && !data.at("multi.WORKER_RPM").empty()) 
+        _multi.workerRpm = std::stoi(data.at("multi.WORKER_RPM"));
+    else if (data.contains("multi.worker_rpm") && !data.at("multi.worker_rpm").empty()) 
+        _multi.workerRpm = std::stoi(data.at("multi.worker_rpm"));
 
     // =========================
     // TOOL CONFIG
@@ -77,6 +110,11 @@ Config* Config::instance() {
 const LLMConfig& Config::llm() const
 {
     return _llm;
+}
+
+const MultiAgentConfig& Config::multi() const
+{
+    return _multi;
 }
 
 const ToolConfig& Config::tool() const

@@ -69,6 +69,9 @@ void ToolRegistry::registerBuiltInTools() {
         {
             return std::make_unique<WebSearchTool>();
         });
+}
+
+void ToolRegistry::registerGuiTools() {
     //Screenshot
     registerTool(
         "capture_screenshot",

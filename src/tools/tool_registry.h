@@ -13,6 +13,7 @@ class ToolRegistry {
 public:
     using Factory = std::function<std::unique_ptr<Tool>()>;
     void registerBuiltInTools();
+    void registerGuiTools();
     ToolRegistry();
     std::expected<void, std::string>
     registerTool(const std::string& name, Factory factory);

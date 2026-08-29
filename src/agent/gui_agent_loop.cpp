@@ -95,6 +95,7 @@ std::expected<std::string, std::string> GUIAgentLoop::run(
 
     // Khởi tạo ToolRegistry chỉ chứa các công cụ điều khiển GUI và OS
     ToolRegistry registry;
+    registry.registerGuiTools();
     registry.unregisterTool("web_search");
     registry.unregisterTool("weather");
     registry.unregisterTool("calculator");
