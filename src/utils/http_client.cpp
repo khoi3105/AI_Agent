@@ -1,4 +1,5 @@
 #include "http_client.h"
+#include "rate_limiter.h"
 #include <curl/curl.h>
 namespace agent::utils {
 
@@ -15,6 +16,9 @@ std::expected<std::string, std::string> HttpClient::postJson(
     const std::vector<std::string>& extra_headers,
     long timeout_seconds) 
 {
+    // Kiểm soát tốc độ gửi request và tự động chờ nếu vượt quá RPM đã cấu hình
+    RateLimiter::instance().acquire();
+
     CURL* curl = curl_easy_init();
     if (!curl) return std::unexpected("Không thể khởi tạo libcurl handle");
 
@@ -65,6 +69,8 @@ std::expected<std::string, std::string> HttpClient::get(
     const std::vector<std::string>& extra_headers,
     long timeout_seconds)
 {
+    RateLimiter::instance().acquire();
+
     CURL* curl = curl_easy_init();
     if (!curl)
         return std::unexpected("Không thể khởi tạo libcurl handle");

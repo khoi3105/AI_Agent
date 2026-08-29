@@ -134,7 +134,7 @@ protected:
         const ToolCallRequest& request
     );
 
-private:
+protected:
     StepHook _stepHook{nullptr};
 };
 
