@@ -3,6 +3,8 @@
 #include "../environment/native_environment.h"
 
 #include <iostream>
+#include <print>
+#include <ranges> // Sử dụng C++26: concat
 #include <fstream>
 #include <chrono>
 #include <future>
@@ -103,7 +105,7 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
     }
 
     // 2. Khởi tạo đối tượng Trajectory để lưu vết
-    std::string modelName = "meta/llama-3.2-11b-vision-instruct";
+    std::string modelName = Config::instance()->llm().model;
     Trajectory trajectory(task.id, modelName, task.instruction);
 
     // 3. Khởi tạo AgentLoop và cấu hình theo Max Steps & Độ khó của Task
@@ -198,14 +200,20 @@ Trajectory HarnessRunner::runTask(const BenchmarkTask& task) {
     return trajectory;
 }
 
+void HarnessRunner::addExtraTask(const BenchmarkTask& task) {
+    _extraTasks.push_back(task);
+}
+
 std::vector<Trajectory> HarnessRunner::runBatch() {
     std::vector<Trajectory> results;
-    results.reserve(_tasks.size());
+    size_t totalTasks = _tasks.size() + _extraTasks.size();
+    results.reserve(totalTasks);
 
     int passedCount = 0;
-    std::cout << std::format("\n>>> Starting Benchmark Batch (Total: {} tasks) <<<\n", _tasks.size());
+    std::println("\n>>> Starting Benchmark Batch (Total: {} tasks) <<<", totalTasks);
 
-    for (const auto& task : _tasks) {
+    // C++26: std::views::concat kết hợp tập task chính và dynamic tasks mà không tốn chi phí sao chép
+    for (const auto& task : std::views::concat(_tasks, _extraTasks)) {
         Trajectory traj = runTask(task);
         if (traj.isSuccess()) {
             passedCount++;
@@ -214,18 +222,122 @@ std::vector<Trajectory> HarnessRunner::runBatch() {
     }
 
     // Tính tỷ lệ thành công
-    double successRate = _tasks.empty() ? 0.0 : (static_cast<double>(passedCount) / _tasks.size()) * 100.0;
+    double successRate = totalTasks == 0 ? 0.0 : (static_cast<double>(passedCount) / totalTasks) * 100.0;
 
-    std::cout << "\n======================================================\n";
-    std::cout << "               BENCHMARK BATCH SUMMARY                \n";
-    std::cout << "======================================================\n";
-    std::cout << std::format("Total Tasks Executed : {}\n", results.size());
-    std::cout << std::format("Tasks Passed         : {}\n", passedCount);
-    std::cout << std::format("Tasks Failed         : {}\n", results.size() - passedCount);
-    std::cout << std::format("Success Rate (Acc)   : {:.2f}%\n", successRate);
-    std::cout << "======================================================\n";
+    std::println("\n======================================================");
+    std::println("               BENCHMARK BATCH SUMMARY                ");
+    std::println("======================================================");
+    std::println("Total Tasks Executed : {}", results.size());
+    std::println("Tasks Passed         : {}", passedCount);
+    std::println("Tasks Failed         : {}", results.size() - passedCount);
+    std::println("Success Rate (Acc)   : {:.2f}%", successRate);
+    std::println("======================================================");
+
+    // Xuất toàn bộ kết quả ra file results.json kèm Success Rate
+    std::string resultsPath = std::format("{}/results.json", _outputDir);
+    auto expRes1 = exportBatchResults(results, resultsPath);
+    auto expRes2 = exportBatchResults(results, "benchmark/results.json");
+    (void)expRes1;
+    (void)expRes2;
 
     return results;
+}
+
+std::expected<bool, std::string> HarnessRunner::exportBatchResults(
+    const std::vector<Trajectory>& results, 
+    const std::string& filepath
+) const {
+    if (results.empty()) {
+        return std::unexpected("Không có kết quả benchmark để export.");
+    }
+
+    int passedCount = 0;
+    int totalTokensAll = 0;
+    int64_t totalTimeMsAll = 0;
+    std::string modelName = Config::instance()->llm().model;
+
+    nlohmann::json tasksArray = nlohmann::json::array();
+
+    for (const auto& traj : results) {
+        if (traj.isSuccess()) {
+            passedCount++;
+        }
+        totalTokensAll += traj.getTotalTokens();
+        totalTimeMsAll += traj.getTotalTimeMs();
+        if (modelName.empty() && !traj.getModelName().empty()) {
+            modelName = traj.getModelName();
+        }
+
+        std::string difficulty = "unknown";
+        std::string description = "";
+        std::string evalType = "keyword";
+        for (const auto& t : _tasks) {
+            if (t.id == traj.getTaskId()) {
+                difficulty = t.difficulty;
+                description = t.description;
+                evalType = t.evalType;
+                break;
+            }
+        }
+
+        std::string taskModel = !traj.getModelName().empty() ? traj.getModelName() : modelName;
+
+        nlohmann::json taskItem = {
+            {"task_id", traj.getTaskId()},
+            {"model", taskModel},
+            {"difficulty", difficulty},
+            {"description", description},
+            {"instruction", traj.getInstruction()},
+            {"eval_type", evalType},
+            {"success", traj.isSuccess()},
+            {"step_count", traj.getStepCount()},
+            {"total_tokens", traj.getTotalTokens()},
+            {"total_time_ms", traj.getTotalTimeMs()},
+            {"final_output", traj.getFinalOutput()},
+            {"trajectory_file", std::format("trajectory_{}.json", traj.getTaskId())}
+        };
+
+        tasksArray.push_back(taskItem);
+    }
+
+    double successRate = (static_cast<double>(passedCount) / results.size()) * 100.0;
+
+    nlohmann::json root = {
+        {"benchmark_summary", {
+            {"model", modelName},
+            {"total_tasks", results.size()},
+            {"tasks_passed", passedCount},
+            {"tasks_failed", results.size() - passedCount},
+            {"success_rate_percent", successRate},
+            {"total_tokens_all_tasks", totalTokensAll},
+            {"total_time_ms_all_tasks", totalTimeMsAll},
+            {"average_tokens_per_task", results.empty() ? 0 : totalTokensAll / static_cast<int>(results.size())},
+            {"average_time_ms_per_task", results.empty() ? 0 : totalTimeMsAll / static_cast<int64_t>(results.size())}
+        }},
+        {"results", tasksArray}
+    };
+
+    try {
+        std::filesystem::path p(filepath);
+        if (p.has_parent_path() && !std::filesystem::exists(p.parent_path())) {
+            std::filesystem::create_directories(p.parent_path());
+        }
+
+        std::ofstream outFile(filepath);
+        if (!outFile.is_open()) {
+            return std::unexpected(std::format("Không thể mở file '{}' để ghi!", filepath));
+        }
+
+        outFile << root.dump(2);
+        if (!outFile.good()) {
+            return std::unexpected(std::format("Lỗi ghi dữ liệu ra file '{}'!", filepath));
+        }
+
+        std::cout << std::format("[HarnessRunner] Đã xuất toàn bộ kết quả Benchmark ra: {}\n", filepath);
+        return true;
+    } catch (const std::exception& e) {
+        return std::unexpected(std::format("Lỗi ngoại lệ khi export JSON: {}", e.what()));
+    }
 }
 
 const std::vector<BenchmarkTask>& HarnessRunner::getTasks() const {

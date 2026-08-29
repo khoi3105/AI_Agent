@@ -133,6 +133,7 @@ std::expected<std::string, std::string> GUIAgentLoop::run(
 
         // 2. Gửi ảnh và lịch sử cho VLM
         std::expected<std::string, std::string> llm_response = client->chat(_conversationHistory, current_images);
+        int step_tokens = client->getLastTokensUsed();
 
         if (stop_token.stop_requested()) {
             return std::unexpected("[ERROR]: Task bi huy hoac Timeout!");
@@ -152,6 +153,7 @@ std::expected<std::string, std::string> GUIAgentLoop::run(
         StepData current_step_data;
         current_step_data.stepNumber = step;
         current_step_data.thought = *llm_response;
+        current_step_data.tokensUsed = step_tokens;
 
         if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
             current_step_data.actionName = request.tool_name;
@@ -239,4 +241,256 @@ std::expected<std::string, std::string> GUIAgentLoop::run(
     }
 
     return formatFinalResponse(request);
+}
+
+// ==========================================
+// MULTI-AGENT COORDINATION CHO GUI AGENT
+// ==========================================
+
+void GUIAgentLoop::spawnGuiSubAgent(
+    const std::string& agentId,
+    const std::string& subtaskInstruction,
+    int maxSteps,
+    std::shared_ptr<AgentMessageQueue> messageQueue,
+    std::shared_ptr<LLMClient> client,
+    std::stop_token stopToken) 
+{
+    std::cout << std::format("[GUI Spawner] GUI Sub-Agent [{}] bat dau tren Thread ID: {}\n", 
+                             agentId, std::this_thread::get_id());
+    
+    GUIAgentLoop guiAgent(maxSteps, std::format("/tmp/gui_agent_{}.png", agentId));
+    guiAgent.setActionDelayMs(_actionDelayMs);
+    
+    auto result = guiAgent.run(subtaskInstruction, client, {}, stopToken);
+    std::string outputContent = result.has_value() ? *result : std::format("[GUI Worker Error]: {}", result.error());
+    
+    messageQueue->push(AgentMessage{
+        .senderId = agentId,
+        .receiverId = "Coordinator",
+        .content = outputContent,
+        .data = {},
+        .timestampMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count()
+    });
+    
+    std::cout << std::format("[GUI Spawner] Sub-Agent [{}] da hoan thanh va gui du lieu vao MessageQueue.\n", agentId);
+}
+
+void GUIAgentLoop::spawnWorkerSubAgent(
+    const std::string& agentId,
+    const std::string& subtaskInstruction,
+    int maxSteps,
+    std::shared_ptr<AgentMessageQueue> messageQueue,
+    std::shared_ptr<LLMClient> client,
+    std::stop_token stopToken) 
+{
+    std::cout << std::format("[Worker Spawner] Tool/File Worker [{}] bat dau tren Thread ID: {}\n", 
+                             agentId, std::this_thread::get_id());
+    
+    AgentLoop toolAgent(maxSteps);
+    toolAgent.setEnablePlanning(false);
+    
+    auto result = toolAgent.run(subtaskInstruction, client, {}, stopToken);
+    std::string outputContent = result.has_value() ? *result : std::format("[Tool Worker Error]: {}", result.error());
+    
+    messageQueue->push(AgentMessage{
+        .senderId = agentId,
+        .receiverId = "Coordinator",
+        .content = outputContent,
+        .data = {},
+        .timestampMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count()
+    });
+    
+    std::cout << std::format("[Worker Spawner] Worker [{}] da hoan thanh va gui ket qua vao MessageQueue.\n", agentId);
+}
+
+std::expected<std::string, std::string> GUIAgentLoop::runMultiAgentTask(
+    const GuiMultiAgentTask& task,
+    const std::shared_ptr<LLMClient>& coordinatorClient,
+    const std::shared_ptr<LLMClient>& workerClient,
+    std::stop_token stopToken) 
+{
+    std::cout << "\n======================================================\n";
+    std::cout << std::format("[GUI Multi-Agent] KHOI CHAY TASK: {}\n", task.id);
+    std::cout << std::format("Mo ta: {}\n", task.description);
+    std::cout << std::format("So luong Sub-Agents: {}\n", task.subtasks.size());
+    std::cout << "======================================================\n";
+
+    if (task.subtasks.empty()) {
+        return std::unexpected("[GUI Multi-Agent Error]: Danh sach subtasks rong!");
+    }
+
+    auto effectiveWorkerClient = workerClient ? workerClient : coordinatorClient;
+    auto messageQueue = std::make_shared<AgentMessageQueue>();
+    std::unordered_map<std::string, std::string> subResults;
+
+    for (const auto& subtask : task.subtasks) {
+        if (stopToken.stop_requested()) {
+            return std::unexpected("[GUI Multi-Agent Timeout/Cancelled]");
+        }
+
+        std::string enrichedInstruction = subtask.instruction;
+        if (!subResults.empty()) {
+            enrichedInstruction += "\n\n[Du lieu thu thap tu cac Sub-Agents truoc do]:\n";
+            for (const auto& [prevId, prevRes] : subResults) {
+                enrichedInstruction += std::format("--- [{}] ---\n{}\n", prevId, prevRes);
+            }
+        }
+
+        std::cout << std::format("\n>>> [Coordinator] Dieu phoi thuc thi Sub-Agent [{}] (Vai tro: {}) <<<\n", 
+                                 subtask.agentId, subtask.role);
+
+        if (subtask.role == "gui_specialist" || subtask.role == "gui") {
+            spawnGuiSubAgent(subtask.agentId, enrichedInstruction, subtask.maxSteps, messageQueue, coordinatorClient, stopToken);
+        } else {
+            spawnWorkerSubAgent(subtask.agentId, enrichedInstruction, subtask.maxSteps, messageQueue, effectiveWorkerClient, stopToken);
+        }
+
+        auto msgOpt = messageQueue->pop(std::chrono::milliseconds(500));
+        if (msgOpt.has_value()) {
+            subResults[msgOpt->senderId] = msgOpt->content;
+        }
+    }
+
+    std::cout << "\n[Coordinator] 🧠 Tong hop ket qua toan bo GUI Multi-Agent Workflow qua Coordinator...\n";
+    
+    std::string subFindings = "";
+    for (const auto& subtask : task.subtasks) {
+        subFindings += std::format("=== Ket qua tu {} ({}) ===\n{}\n\n", 
+                                   subtask.agentId, subtask.role, subResults[subtask.agentId]);
+    }
+
+    std::string synthesisPrompt = std::format(
+        "Nhiem vu tong quat: {}\n\n"
+        "{}"
+        "Chi thi tong hop: {}",
+        task.description,
+        subFindings,
+        task.aggregationInstruction
+    );
+
+    AgentLoop aggregatorAgent(5);
+    aggregatorAgent.setEnablePlanning(false);
+
+    return aggregatorAgent.run(synthesisPrompt, coordinatorClient, {}, stopToken);
+}
+
+std::expected<std::string, std::string> GUIAgentLoop::coordinateTask(
+    const std::string& complexUserTask,
+    const std::shared_ptr<LLMClient>& coordinatorClient,
+    const std::shared_ptr<LLMClient>& workerClient,
+    std::stop_token stopToken) 
+{
+    std::cout << "\n======================================================\n";
+    std::cout << "[Coordinator] BAT DAU DIEU PHOI MULTI-AGENT GUI WORKFLOW\n";
+    std::cout << std::format("Yeu cau: \"{}\"\n", complexUserTask);
+    std::cout << "======================================================\n";
+
+    std::string decomposePrompt = std::format(
+        "Ban la Master AI Coordinator cho he thong Autonomous GUI Desktop Automation Agent.\n"
+        "Hay phan tich yeu cau sau cua nguoi dung va tu dong chia thanh cac subtasks thich hop:\n"
+        "1. GUI Subtask (role: 'gui_specialist'): Thao tac tren man hinh desktop (mo trinh duyet Edge/Firefox, go phim, click, tim kiem tren web, quan sat man hinh va trich xuat du lieu can thiet).\n"
+        "2. Tool/File Subtask (role: 'tool_specialist'): Xu ly du lieu trich xuat duoc tu GUI (tinh toan, format noi dung, ghi ra file van ban bang tool write_file, luu database, v.v.).\n\n"
+        "Yeu cau tra ve DUY NHAT 01 khoi JSON hop le co dinh dang:\n"
+        "```json\n"
+        "{{\n"
+        "  \"subtasks\": [\n"
+        "    {{\n"
+        "      \"agent_id\": \"GUI_Navigator\",\n"
+        "      \"role\": \"gui_specialist\",\n"
+        "      \"instruction\": \"<Chi thi chi tiet cho GUI Agent>\"\n"
+        "    }},\n"
+        "    {{\n"
+        "      \"agent_id\": \"Data_FileWriter\",\n"
+        "      \"role\": \"tool_specialist\",\n"
+        "      \"instruction\": \"<Chi thi chi tiet cho Tool/File Agent>\"\n"
+        "    }}\n"
+        "  ],\n"
+        "  \"aggregation_goal\": \"<Chi thi tong hop va bao cao ket qua cuoi cung>\"\n"
+        "}}\n"
+        "```\n\n"
+        "Yeu cau cua nguoi dung: {}", complexUserTask
+    );
+
+    nlohmann::json planMsg = nlohmann::json::array({
+        {{"role", "user"}, {"content", decomposePrompt}}
+    });
+
+    std::cout << "[Gemini Coordinator] Dang phan tich va phan ra nhiem vu Desktop GUI & Data Workflow...\n";
+    auto planRes = coordinatorClient->chat(planMsg);
+    if (!planRes.has_value()) {
+        return std::unexpected("[Gemini Decompose Error]: " + planRes.error());
+    }
+
+    GuiMultiAgentTask multiTask{
+        .id = "gui_multi_agent_workflow",
+        .description = complexUserTask,
+        .subtasks = {},
+        .aggregationInstruction = "Xac nhan thong tin da tim thay tren man hinh va kiem tra file da duoc ghi thanh cong.",
+        .timeoutSeconds = 180
+    };
+
+    try {
+        std::string raw = *planRes;
+        if (raw.find("```json") != std::string::npos) {
+            raw = raw.substr(raw.find("```json") + 7);
+            raw = raw.substr(0, raw.rfind("```"));
+        } else if (raw.find("```") != std::string::npos) {
+            raw = raw.substr(raw.find("```") + 3);
+            raw = raw.substr(0, raw.rfind("```"));
+        }
+        
+        size_t firstBrace = raw.find('{');
+        size_t lastBrace = raw.rfind('}');
+        if (firstBrace != std::string::npos && lastBrace != std::string::npos && lastBrace > firstBrace) {
+            raw = raw.substr(firstBrace, lastBrace - firstBrace + 1);
+        }
+
+        nlohmann::json planJson = nlohmann::json::parse(raw);
+        multiTask.aggregationInstruction = planJson.value("aggregation_goal", multiTask.aggregationInstruction);
+
+        if (planJson.contains("subtasks") && planJson["subtasks"].is_array()) {
+            int index = 1;
+            for (const auto& item : planJson["subtasks"]) {
+                std::string id = item.value("agent_id", std::format("Worker_{}", index));
+                std::string role = item.value("role", "tool_specialist");
+                std::string instr = item.value("instruction", "");
+                if (!instr.empty()) {
+                    multiTask.subtasks.push_back(GuiMultiAgentSubtask{
+                        .agentId = id,
+                        .role = role,
+                        .instruction = instr,
+                        .maxSteps = (role == "gui_specialist" ? 15 : 6)
+                    });
+                    index++;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << std::format("[Warning]: Khong the parse JSON tu Coordinator ({}), dung cau hinh mac dinh.\n", e.what());
+    }
+
+    if (multiTask.subtasks.empty()) {
+        multiTask.subtasks.push_back(GuiMultiAgentSubtask{
+            .agentId = "GUI_Navigator",
+            .role = "gui_specialist",
+            .instruction = complexUserTask + " (Quan sát màn hình, mở trình duyệt/ứng dụng, tìm kiếm thông tin và trích xuất dữ liệu)",
+            .maxSteps = 15
+        });
+        multiTask.subtasks.push_back(GuiMultiAgentSubtask{
+            .agentId = "Data_FileWriter",
+            .role = "tool_specialist",
+            .instruction = "Nhận thông tin đã tìm thấy từ GUI_Navigator và thực thi các thao tác ghi file/tính toán theo yêu cầu: " + complexUserTask,
+            .maxSteps = 6
+        });
+    }
+
+    std::cout << std::format("[Coordinator] Ke hoach thuc thi {} Sub-Agents:\n", multiTask.subtasks.size());
+    for (const auto& st : multiTask.subtasks) {
+        std::cout << std::format("   • [{}] ({}) -> {}\n", st.agentId, st.role, st.instruction);
+    }
+    std::cout << "\n";
+
+    return runMultiAgentTask(multiTask, coordinatorClient, workerClient, stopToken);
 }

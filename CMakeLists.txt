@@ -7,19 +7,18 @@ project(MyAgentProject CXX)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Tìm PkgConfig (dùng để tìm poppler-cpp, gumbo, glfw3)
+# Tìm PkgConfig (dùng để tìm poppler-cpp, gumbo)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(POPPLER REQUIRED poppler-cpp)
 pkg_check_modules(GUMBO REQUIRED gumbo)
-pkg_check_modules(GLFW QUIET glfw3)
 
-# Tìm thư viện libcurl, SQLite3, OpenGL trên hệ thống
+# Tìm thư viện libcurl, SQLite3 trên hệ thống
 find_package(CURL REQUIRED)
 find_package(SQLite3 REQUIRED)
-find_package(OpenGL REQUIRED)
 
-# Gom tất cả các file .cpp từ các thư mục con lại (kèm Server, GUI & ImGui)
+# Gom tất cả các file .cpp từ các thư mục con lại (kèm Server, Tools, Agent, Harness)
 file(GLOB_RECURSE SOURCES
     "src/client/*.cpp"
     "src/main.cpp"
@@ -29,8 +28,6 @@ file(GLOB_RECURSE SOURCES
     "src/harness/*.cpp"
     "src/environment/*.cpp"
     "src/config/*.cpp"
-    "src/gui/*.cpp"
-    "src/gui/imgui/*.cpp"
     "src/server/*.cpp"
 )
 
@@ -40,24 +37,19 @@ add_executable(main ${SOURCES})
 # Thêm thư mục include cho các header file
 target_include_directories(main PRIVATE 
     src
-    src/gui/imgui
     src/server
     ${POPPLER_INCLUDE_DIRS}
     ${GUMBO_INCLUDE_DIRS}
     ${SQLITE3_INCLUDE_DIRS}
-    ${GLFW_INCLUDE_DIRS}
-    ${OPENGL_INCLUDE_DIR}
 )
 
 # Liên kết với các thư viện
 target_link_libraries(main PRIVATE 
     CURL::libcurl
     SQLite::SQLite3
-    OpenGL::GL
     ${POPPLER_LIBRARIES}
     ${GUMBO_LIBRARIES}
     xdo
-    glfw
     dl
     pthread
 )

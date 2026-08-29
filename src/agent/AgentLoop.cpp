@@ -3,6 +3,8 @@
 #include <memory>
 #include <format>
 #include <iostream>
+#include <print>
+#include <ranges>
 #include <chrono>
 #include <stop_token>
 
@@ -92,19 +94,19 @@ std::expected<TaskPlan, std::string> AgentLoop::plan(
     plan_history.push_back({{"role", "system"}, {"content", plan_system_prompt}});
     plan_history.push_back({{"role", "user"}, {"content", user_task}});
 
-    std::cout << "[Planner]: Dang suy nghi va lap ke hoach (TaskPlan) cho nhiem vu...\n";
+    std::println("[Planner]: Dang suy nghi va lap ke hoach (TaskPlan) cho nhiem vu...");
     auto plan_response = client->chat(plan_history, image_paths);
     
     if (!plan_response.has_value()) {
         return std::unexpected("[Planner ERROR]: Khong the lay ke hoach tu LLM: " + plan_response.error());
     }
 
-    std::cout << "========================================================================\n";
-    std::cout << "--> Ke hoach goc tu AI Planner:\n" << *plan_response << "\n";
-    std::cout << "========================================================================\n";
+    std::println("========================================================================");
+    std::println("--> Ke hoach goc tu AI Planner:\n{}", *plan_response);
+    std::println("========================================================================");
 
     TaskPlan task_plan = TaskPlan::parse(*plan_response);
-    std::cout << task_plan.toString() << "\n";
+    std::println("{}", task_plan.toString());
     return task_plan;
 }
 
@@ -145,6 +147,7 @@ std::expected<std::string, std::string> AgentLoop::run(
             plan_step.actionArgs = plan_result->toJson();
             plan_step.observation = plan_result->toString();
             plan_step.latencyMs = std::chrono::duration_cast<std::chrono::milliseconds>(plan_end_time - plan_start_time).count();
+            plan_step.tokensUsed = client->getLastTokensUsed();
 
             if (_stepHook) {
                 _stepHook(plan_step);
@@ -179,15 +182,16 @@ std::expected<std::string, std::string> AgentLoop::run(
         // Chỉ truyền image_paths ở turn 1 nếu chưa lập plan trước đó để tối ưu token
         std::vector<std::string> current_images = (step == 1 && !_enablePlanning) ? image_paths : std::vector<std::string>{};
         std::expected<std::string, std::string> llm_response = client->chat(_conversationHistory, current_images);
+        int step_tokens = client->getLastTokensUsed();
         
         if (stop_token.stop_requested()) {
             return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
         }
 
         if (llm_response.has_value()) {
-            std::cout << "========================================================================\n";
-            std::cout << std::format("--> Cau tra loi goc tu AI (Buoc {}):\n{}\n", step, *llm_response);
-            std::cout << "========================================================================\n";
+            std::println("========================================================================");
+            std::println("--> Cau tra loi goc tu AI (Buoc {}):\n{}", step, *llm_response);
+            std::println("========================================================================");
         } else {
             return std::unexpected(std::format("[ERROR]: Khong nhan phan hoi tu LLM - {} !", llm_response.error()));
         }
@@ -199,6 +203,7 @@ std::expected<std::string, std::string> AgentLoop::run(
         StepData current_step_data;
         current_step_data.stepNumber = step;
         current_step_data.thought = *llm_response;
+        current_step_data.tokensUsed = step_tokens;
 
         if (request.is_valid && request.tool_name != "null" && !request.tool_name.empty()) {
             current_step_data.actionName = request.tool_name;
@@ -228,7 +233,7 @@ std::expected<std::string, std::string> AgentLoop::run(
                 return std::unexpected("[ERROR]: Task bi huy hoac da qua thoi gian cho (Timeout)!");
             }
 
-            std::cout << "[Act]: Goi cong cu '" << request.tool_name << "'...\n";
+            std::println("[Act]: Goi cong cu '{}'...", request.tool_name);
 
             // ================================
             // TOOL POLICY
@@ -239,7 +244,7 @@ std::expected<std::string, std::string> AgentLoop::run(
             );
 
             if (!policyResult) {
-                std::cout << "[ToolPolicy] BLOCKED: " << policyResult.error() << '\n';
+                std::println("[ToolPolicy] BLOCKED: {}", policyResult.error());
 
                 current_step_data.observation = "[POLICY BLOCKED] " + policyResult.error();
 
@@ -301,7 +306,7 @@ std::expected<std::string, std::string> AgentLoop::run(
     // =========================================================================
     // GRACEFUL DEGRADATION: KHI HẾT BƯỚC (MAX STEPS REACHED)
     // =========================================================================
-    std::cout << std::format("[AgentLoop Warning]: Đã đạt số bước tối đa ({}). Tổng hợp kết quả tốt nhất hiện có...\n", _maxstep);
+    std::println("[AgentLoop Warning]: Đã đạt số bước tối đa ({}). Tổng hợp kết quả tốt nhất hiện có...", _maxstep);
     return formatFinalResponse(request);
 }
 
@@ -313,7 +318,7 @@ std::string AgentLoop::prepareSystemPrompt(const ToolRegistry& registry, const s
         auto skill_res = _skillLoader.selectSkillsForTask(user_task);
         if (skill_res.has_value() && !skill_res.value().empty()) {
             skills_section = "\n\n    === KỸ NĂNG HƯỚNG DẪN CHUYÊN BIỆT ĐƯỢC KÍCH HOẠT (APPLIED SKILLS) ===\n" + skill_res.value() + "\n";
-            std::cout << "[SkillLoader] Da kich hoat va nap ky nang cho nhiem vu hien tai.\n";
+            std::println("[SkillLoader] Da kich hoat va nap ky nang cho nhiem vu hien tai.");
         }
     }
 
@@ -359,7 +364,7 @@ std::expected<std::string, std::string> AgentLoop::act(ToolRegistry& registry, c
 void AgentLoop::observe(const std::string& tool_name, const std::expected<std::string, std::string>& tool_result, StepData& out_step_data) {
     if (tool_result.has_value()) {
         std::string res_str = *tool_result;
-        std::cout << "[Observe]: Ket qua Tool: " << res_str << std::endl;
+        std::println("[Observe]: Ket qua Tool: {}", res_str);
         
         out_step_data.observation = res_str;
 

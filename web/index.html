@@ -169,11 +169,11 @@
             <div class="p-3 border-t border-brand-border bg-slate-950/40 text-[11px] text-slate-400 space-y-1">
                 <div class="flex items-center justify-between">
                     <span>Tác giả:</span>
-                    <strong class="text-slate-200">Nhann</strong>
+                    <strong class="text-slate-200">Nhân, Khôi, Huân</strong>
                 </div>
                 <div class="flex items-center justify-between">
                     <span>Phiên bản:</span>
-                    <span class="text-cyan-400 font-mono">v2.1 (Web GUI)</span>
+                    <span class="text-cyan-400 font-mono">Web GUI</span>
                 </div>
             </div>
         </aside>
@@ -668,7 +668,10 @@
                         <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
                         <span>Bước ${step.stepNumber}</span>
                     </span>
-                    <span class="text-slate-500">${step.latencyMs} ms</span>
+                    <div class="flex items-center gap-3 text-slate-500">
+                        ${step.tokensUsed ? `<span class="text-amber-400/90"><i class="fa-solid fa-coins mr-1 text-[10px]"></i>${step.tokensUsed} tokens</span>` : ''}
+                        <span>${step.latencyMs} ms</span>
+                    </div>
                 </div>
             `;
 
@@ -864,6 +867,27 @@
             if (!str) return '';
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
+
+        // Tự động đồng bộ tên model từ C++ Web Server khi tải trang
+        async function updateSystemStatus() {
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    const badge = document.getElementById('modelBadge');
+                    if (badge && data.model) {
+                        badge.innerText = data.model;
+                    }
+                }
+            } catch (err) {
+                console.warn("Không thể tải trạng thái hệ thống từ /api/status:", err);
+            }
+        }
+    
+        // Gọi ngay khi mở trang
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSystemStatus();
+        });
     </script>
 </body>
 </html>

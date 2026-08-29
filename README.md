@@ -2,7 +2,7 @@
 
 > **Đồ Án Lập Trình Hướng Đối Tượng (OOP) - Năm Học 2025-2026**  
 > **Trường Đại Học Khoa Học Tự Nhiên - ĐHQG-HCM (HCMUS)**  
-> **Tác Giả:** Nhann  
+> **Tác Giả:** Khôi, Nhân, Huân  
 > **Ngôn Ngữ:** C++ (Tiêu chuẩn hiện đại C++20/C++23/C++26)
 
 ---
@@ -111,23 +111,29 @@ cmake --build build -j$(nproc)
 
 ### 4.3. Các Chế Độ Chạy Chương Trình
 
-#### A. Chế độ Giao diện Menu Tương tác (Interactive Mode):
+#### A. Chế độ Giao diện Web GUI Dashboard (Web Browser):
 ```bash
-export $(cat .env | xargs) && ./build/main
+export $(cat .env | xargs) && ./build/main --web
 ```
-*Bạn có thể chọn nhập yêu cầu trực tiếp, tra cứu thông tin, đọc/ghi file hoặc chạy benchmark từ menu.*
+*Mở trình duyệt tại `http://localhost:8080` để trải nghiệm giao diện Web Dashboard trực quan tiếng Việt.*
 
-#### B. Chạy trực tiếp một câu lệnh (CLI Prompt Mode):
+#### B. Chế độ Desktop GUI Agent Đa Tác Tử (Multi-Agent GUI Automation):
+```bash
+DISPLAY=:0 XAUTHORITY=/home/kali/.Xauthority ./build/main gui "Mở trình duyệt Microsoft Edge, tìm kiếm thông tin về giá iphone 17 pro max. Sau đó, viết vào file ip17.txt"
+```
+*Hệ thống điều phối Master Coordinator (Gemini) phân rã bài toán, giao cho GUI Agent quan sát màn hình trích xuất dữ liệu, và giao cho Tool Worker ghi kết quả ra file.*
+
+#### C. Chạy trực tiếp một câu lệnh CLI Prompt:
 ```bash
 export $(cat .env | xargs) && ./build/main "Tính (125 * 37) + (940 / 5) và ghi kết quả vào file kq.txt"
 ```
 
-#### C. Chạy Toàn Bộ Bộ Đánh Giá Benchmark (10 Tasks):
+#### D. Chạy Toàn Bộ Bộ Đánh Giá Benchmark (10 Tasks):
 ```bash
 export $(cat .env | xargs) && ./build/main --eval
 ```
 
-#### D. Chạy Kiểm Tra Riêng 01 Task Cụ Thể:
+#### E. Chạy Kiểm Tra Riêng 01 Task Cụ Thể:
 ```bash
 export $(cat .env | xargs) && ./build/main --task task_001
 export $(cat .env | xargs) && ./build/main --task task_010

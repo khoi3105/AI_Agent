@@ -1,6 +1,7 @@
 #include "rate_limiter.h"
 #include "../config/config.h"
 #include <iostream>
+#include <print>
 #include <thread>
 #include <format>
 #include <algorithm>
@@ -94,8 +95,8 @@ void RateLimiter::acquire(const std::string& url) {
         auto wait_ms = std::chrono::milliseconds(60000) - elapsed + std::chrono::milliseconds(150); // Buffer 150ms
 
         if (wait_ms.count() > 0) {
-            std::cout << std::format("[RateLimiter - {}]: ⚠️ Đạt giới hạn {} RPM (Hiện tại: {} reqs/60s). Tạm dừng {:.2f}s để tránh HTTP 429...\n", 
-                                     provider, maxRPM, _timestampsByProvider[provider].size(), wait_ms.count() / 1000.0);
+            std::println("[RateLimiter - {}]: Đạt giới hạn {} RPM (Hiện tại: {} reqs/60s). Tạm dừng {:.2f}s để tránh HTTP 429...", 
+                         provider, maxRPM, _timestampsByProvider[provider].size(), wait_ms.count() / 1000.0);
             
             lock.unlock();
             std::this_thread::sleep_for(wait_ms);
@@ -110,15 +111,15 @@ void RateLimiter::acquire(const std::string& url) {
     _timestampsByProvider[provider].push_back(now);
 
     if (provider == "gemini" && maxRPM > 0) {
-        std::cout << std::format("[RateLimiter - Gemini]: Lưu lượng Gemini API: {}/{} RPM (trong 60s qua).\n", 
-                                 _timestampsByProvider[provider].size(), maxRPM);
+        std::println("[RateLimiter - Gemini]: Lưu lượng Gemini API: {}/{} RPM (trong 60s qua).", 
+                     _timestampsByProvider[provider].size(), maxRPM);
     } else if (provider == "worker_llama") {
         if (maxRPM > 0) {
-            std::cout << std::format("[RateLimiter - Llama]: Lưu lượng Llama Worker: {}/{} RPM.\n", 
-                                     _timestampsByProvider[provider].size(), maxRPM);
+            std::println("[RateLimiter - Llama]: Lưu lượng Llama Worker: {}/{} RPM.", 
+                         _timestampsByProvider[provider].size(), maxRPM);
         } else {
-            std::cout << std::format("[Worker - Llama]: Gửi request tới Llama (Không giới hạn RPM - Request #{}/60s).\n",
-                                     _timestampsByProvider[provider].size());
+            std::println("[Worker - Llama]: Gửi request tới Llama (Không giới hạn RPM - Request #{}/60s).",
+                         _timestampsByProvider[provider].size());
         }
     }
 }

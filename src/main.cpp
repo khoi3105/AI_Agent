@@ -1,4 +1,6 @@
 #include <iostream>
+#include <print>
+#include <ranges>
 #include <string>
 #include <memory>
 #include <vector>
@@ -19,30 +21,28 @@
 #include "utils/env_utils.h"
 #include "harness/harness_runner.h"
 #include "config/config.h"
-#include "gui/agent_gui.h"
 #include "server/web_server.h"
 
 using namespace std;
 
 void printBanner() {
-    cout << "=================================================================\n";
-    cout << "          AUTONOMOUS C++ AI AGENT (OOP 2026 - HCMUS)             \n";
-    cout << "=================================================================\n";
+    println("=================================================================");
+    println("          AUTONOMOUS C++ AI AGENT (OOP 2026 - HCMUS)             ");
+    println("=================================================================");
 }
 
 void printHelp(const char* progName) {
-    cout << "\nCách sử dụng:\n";
-    cout << format("  {} [tùy chọn] [yêu cầu]\n\n", progName);
-    cout << "Các tùy chọn:\n";
-    cout << "  --web, -w               : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)\n";
-    cout << "  --gui, -g               : Khởi chạy Desktop GUI Dashboard (Dear ImGui)\n";
-    cout << "  --gui-agent, -a         : Khởi chạy Desktop GUI Agent (Computer Use & Automation)\n";
-    cout << "  --multi-agent, -m       : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
-    cout << "  --eval, -b              : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)\n";
-    cout << "  --task <id>             : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)\n";
-    cout << "  --help, -h              : Hiển thị hướng dẫn sử dụng này\n";
-    cout << "  \"<nội dung câu hỏi>\"    : Chạy trực tiếp một tác vụ cho AI Agent\n";
-    cout << "  (Không có tham số)      : Mở Menu tương tác trực quan\n\n";
+    println("\nCách sử dụng:");
+    println("  {} [tùy chọn] [yêu cầu]\n", progName);
+    println("Các tùy chọn:");
+    println("  --web, -w                     : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)");
+    println("  --gui-agent, --gui, -g, -a, gui: Khởi chạy Desktop GUI Agent (Computer Use & Multi-Agent Coordination)");
+    println("  --multi-agent, -m             : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)");
+    println("  --eval, -b                    : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)");
+    println("  --task <id>                   : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)");
+    println("  --help, -h                    : Hiển thị hướng dẫn sử dụng này");
+    println("  \"<nội dung câu hỏi>\"          : Chạy trực tiếp một tác vụ cho AI Agent");
+    println("  (Không có tham số)            : Mở Menu tương tác trực quan\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -94,17 +94,11 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        if (arg1 == "--gui" || arg1 == "-g") {
-            printBanner();
-            cout << "[GUI]: Dang khoi dong Giao dien Do hoa Dear ImGui Desktop Dashboard...\n";
-            AgentGUI gui(client, env);
-            return gui.run();
-        }
-
-        if (arg1 == "--gui-agent" || arg1 == "-a" || arg1 == "gui") {
+        if (arg1 == "--gui-agent" || arg1 == "-a" || arg1 == "gui" || arg1 == "--gui" || arg1 == "-g") {
             printBanner();
             cout << "\n======================================================\n";
-            cout << "     KHOI DONG GUI AGENT (SCREENSHOT + ACTION)        \n";
+            cout << "     KHOI DONG MULTI-AGENT GUI AGENT (COMPUTER USE)   \n";
+            cout << "    (Gemini: Coordinator | GUI: Visual | Tool: File)  \n";
             cout << "======================================================\n";
 
             string gui_task = "Quan sát màn hình Desktop hiện tại, mở terminal hoặc trình duyệt web, tìm kiếm thông tin về 'Trường Đại học Khoa học Tự nhiên ĐHQG-HCM', sao chép và tổng kết kết quả.";
@@ -117,11 +111,11 @@ int main(int argc, char* argv[]) {
             GUIAgentLoop gui_agent(20, "/tmp/agent_screenshot.png");
             gui_agent.setActionDelayMs(1000); // 1s giữa các thao tác
 
-            auto result = gui_agent.run(gui_task, client);
+            auto result = gui_agent.coordinateTask(gui_task, client, worker_client);
             if (result.has_value()) {
-                cout << "\n[Ket qua GUI Agent]:\n" << result.value() << endl;
+                cout << "\n=== KET QUA HOAN TAT MULTI-AGENT GUI ===\n" << result.value() << endl;
             } else {
-                cerr << "\n[Loi GUI Agent]: " << result.error() << endl;
+                cerr << "\n=== LOI THUC THI MULTI-AGENT GUI ===\n" << result.error() << endl;
             }
             return 0;
         }
@@ -220,13 +214,12 @@ int main(int argc, char* argv[]) {
         cout << "1. Nhap yeu cau / cau hoi truc tiep cho AI Agent (CLI)\n";
         cout << "2. Chay toan bo bo danh gia Benchmark (10 Tasks)\n";
         cout << "3. Chay kiem tra rieng 01 Task cu the\n";
-        cout << "4. Khoi chay GUI Agent Desktop Automation (Computer Use)\n";
+        cout << "4. Khoi chay GUI Agent Desktop Automation (Multi-Agent Computer Use)\n";
         cout << "5. Khoi chay Web GUI Dashboard (Trình duyệt - Tiếng Việt)\n";
-        cout << "6. Khoi chay Desktop GUI Dashboard (Dear ImGui)\n";
-        cout << "7. Khoi chay Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
-        cout << "8. Thoat chuong trinh\n";
+        cout << "6. Khoi chay Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
+        cout << "7. Thoat chuong trinh\n";
         cout << "-----------------------------------------------------------------\n";
-        cout << "Lua chon cua ban [1-8]: ";
+        cout << "Lua chon cua ban [1-7]: ";
 
         int choice = 0;
         if (!(cin >> choice)) {
@@ -276,28 +269,24 @@ int main(int argc, char* argv[]) {
                 }
             }
         } else if (choice == 4) {
-            cout << "\nNhap yeu cau cho GUI Agent dieu khien may tinh (hoac Enter de dung mac dinh):\n> ";
+            cout << "\nNhap yeu cau cho Multi-Agent GUI Desktop Automation (hoac Enter de dung mac dinh):\n> ";
             string gui_task;
             getline(cin, gui_task);
             if (gui_task.empty()) {
-                gui_task = "Quan sát màn hình Desktop hiện tại, mở terminal và hiển thị thông tin hệ thống.";
+                gui_task = "Quan sát màn hình Desktop hiện tại, mở terminal hoặc trình duyệt web, tìm kiếm thông tin và tổng kết kết quả.";
             }
-            GUIAgentLoop gui_agent(8, "/tmp/agent_screenshot.png");
+            GUIAgentLoop gui_agent(20, "/tmp/agent_screenshot.png");
             gui_agent.setActionDelayMs(1000);
-            auto res = gui_agent.run(gui_task, client);
+            auto res = gui_agent.coordinateTask(gui_task, client, worker_client);
             if (res.has_value()) {
-                cout << "\n=== KET QUA GUI AGENT ===\n" << res.value() << "\n\n";
+                cout << "\n=== KET QUA MULTI-AGENT GUI AGENT ===\n" << res.value() << "\n\n";
             } else {
-                cerr << "\n=== LOI GUI AGENT ===\n" << res.error() << "\n\n";
+                cerr << "\n=== LOI MULTI-AGENT GUI AGENT ===\n" << res.error() << "\n\n";
             }
         } else if (choice == 5) {
             WebServer server(client, env, 8080, "web");
             server.start();
         } else if (choice == 6) {
-            cout << "\n[GUI]: Dang mo cua so Dear ImGui Desktop Dashboard...\n";
-            AgentGUI gui(client, env);
-            gui.run();
-        } else if (choice == 7) {
             cout << "\nNhap nhiem vu phuc tap can Multi-Agent phan chia xu ly (hoac Enter de dung demo mac dinh):\n> ";
             string multi_task;
             getline(cin, multi_task);
@@ -311,7 +300,7 @@ int main(int argc, char* argv[]) {
             } else {
                 cerr << "\n=== LOI MULTI-AGENT ===\n" << res.error() << "\n\n";
             }
-        } else if (choice == 8) {
+        } else if (choice == 7) {
             cout << "\nTam biet! Cam on ban da su dung AI Agent.\n";
             break;
         }
