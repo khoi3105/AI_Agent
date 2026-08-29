@@ -38,10 +38,20 @@ BenchmarkTask BenchmarkTask::fromJson(const nlohmann::json& j) {
 // Implementation for HarnessRunner
 // ==========================================
 
-HarnessRunner::HarnessRunner(std::shared_ptr<LLMClient> client, std::shared_ptr<Environment> env, std::string outputDir)
-    : _client(std::move(client)), _env(std::move(env)), _outputDir(std::move(outputDir)) {
+HarnessRunner::HarnessRunner(
+    std::shared_ptr<LLMClient> client, 
+    std::shared_ptr<Environment> env, 
+    std::string outputDir,
+    std::shared_ptr<LLMClient> workerClient
+) : _client(std::move(client)), 
+    _workerClient(std::move(workerClient)),
+    _env(std::move(env)), 
+    _outputDir(std::move(outputDir)) {
     if (!_env) {
         _env = std::make_shared<NativeEnvironment>();
+    }
+    if (!_workerClient) {
+        _workerClient = _client;
     }
 
     // Đảm bảo thư mục lưu trữ kết quả tồn tại
@@ -235,4 +245,219 @@ void HarnessRunner::setEnvironment(std::shared_ptr<Environment> env) {
 
 std::shared_ptr<Environment> HarnessRunner::getEnvironment() const {
     return _env;
+}
+
+void HarnessRunner::setWorkerClient(std::shared_ptr<LLMClient> workerClient) {
+    _workerClient = std::move(workerClient);
+}
+
+std::shared_ptr<LLMClient> HarnessRunner::getWorkerClient() const {
+    return _workerClient;
+}
+
+void HarnessRunner::spawnSubAgent(
+    const std::string& agentId,
+    const std::string& subtaskInstruction,
+    int maxSteps,
+    std::shared_ptr<AgentMessageQueue> messageQueue,
+    std::stop_token stopToken) 
+{
+    std::cout << std::format("[Spawner] Agent [{}] bat dau chay tren Thread ID: {}\n", 
+                             agentId, std::this_thread::get_id());
+    
+    AgentLoop agent(maxSteps);
+    agent.setEnablePlanning(false); // Sub-agent chạy Fast Path để phản xạ nhanh
+    
+    // Sub-agent thực thi bằng _workerClient (Llama / Ollama)
+    auto result = agent.run(subtaskInstruction, _workerClient, {}, stopToken);
+    
+    std::string outputContent = result.has_value() ? *result : std::format("[Worker Error]: {}", result.error());
+    
+    // Đẩy kết quả vào MessageQueue (Thread-safe)
+    messageQueue->push(AgentMessage{
+        .senderId = agentId,
+        .receiverId = "Coordinator",
+        .content = outputContent,
+        .data = {},
+        .timestampMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count()
+    });
+    
+    std::cout << std::format("[Spawner] Agent [{}] da hoan thanh va gui thong diep vao MessageQueue.\n", agentId);
+}
+
+std::expected<std::string, std::string> HarnessRunner::runMultiAgentTask(const MultiAgentTask& task) {
+    std::cout << "\n======================================================\n";
+    std::cout << std::format("[Multi-Agent] KHOI CHAY TASK: {}\n", task.id);
+    std::cout << std::format("Mo ta: {}\n", task.description);
+    std::cout << std::format("So luong Sub-Agents duoc phan cong: {}\n", task.subtasks.size());
+    std::cout << "======================================================\n";
+
+    if (task.subtasks.empty()) {
+        return std::unexpected("[Multi-Agent Error]: Danh sach subtasks rong!");
+    }
+
+    auto messageQueue = std::make_shared<AgentMessageQueue>();
+    std::stop_source stopSource;
+
+    // 1. Spawn đồng thời N Sub-Agents trên N thread riêng biệt (std::jthread C++20)
+    std::vector<std::jthread> workerThreads;
+    workerThreads.reserve(task.subtasks.size());
+
+    for (const auto& subtask : task.subtasks) {
+        workerThreads.emplace_back([this, subtask, messageQueue, token = stopSource.get_token()]() {
+            spawnSubAgent(subtask.agentId, subtask.instruction, subtask.maxSteps, messageQueue, token);
+        });
+    }
+
+    // 2. Chờ nhận kết quả từ MessageQueue từ toàn bộ N agents
+    std::unordered_map<std::string, std::string> subResults;
+    auto startTime = std::chrono::steady_clock::now();
+
+    while (subResults.size() < task.subtasks.size()) {
+        if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - startTime).count() > task.timeoutSeconds) {
+            stopSource.request_stop();
+            return std::unexpected(std::format("[Timeout]: Qua thoi gian cho phep ({}s) cua Multi-Agent Task!", task.timeoutSeconds));
+        }
+
+        auto msgOpt = messageQueue->pop(std::chrono::milliseconds(200));
+        if (msgOpt.has_value()) {
+            std::cout << std::format("\n[Coordinator] Nhan thong diep tu [{}]:\n{}\n", 
+                                     msgOpt->senderId, msgOpt->content);
+            subResults[msgOpt->senderId] = msgOpt->content;
+        }
+    }
+
+    // 3. HarnessRunner khởi chạy AgentLoop với Coordinator Client (Gemini) để tổng hợp kết quả và thực thi Tool (ghi file, v.v.)
+    std::cout << "\n[Coordinator] 🧠 Khởi động AgentLoop tổng hợp kết quả và thực thi hành động qua Gemini...\n";
+    
+    std::string subFindings = "";
+    for (const auto& subtask : task.subtasks) {
+        subFindings += std::format("=== Kết quả từ {} ===\n{}\n\n", 
+                                   subtask.agentId, subResults[subtask.agentId]);
+    }
+
+    std::string synthesisPrompt = std::format(
+        "Nhiệm vụ tổng quát: {}\n\n"
+        "{}"
+        "Chỉ thị tổng hợp: {}",
+        task.description,
+        subFindings,
+        task.aggregationInstruction
+    );
+
+    AgentLoop aggregatorAgent(5);
+    aggregatorAgent.setEnablePlanning(false); // Không cần planning vòng 0 vì đã có đủ dữ liệu từ các sub-agents
+
+    return aggregatorAgent.run(synthesisPrompt, _client);
+}
+
+std::expected<std::string, std::string> HarnessRunner::coordinateTask(const std::string& complexUserTask) {
+    std::cout << "\n======================================================\n";
+    std::cout << "[Coordinator] BẮT ĐẦU ĐIỀU PHỐI HYBRID MULTI-AGENT (DYNAMIC FAN-OUT)\n";
+    std::cout << std::format("Nhiệm vụ: \"{}\"\n", complexUserTask);
+    std::cout << "======================================================\n";
+
+    // ------------------------------------------------------------------
+    // GIAI ĐOẠN 1: Dùng Gemini (Coordinator) phân rã bài toán lớn thành N Subtasks động
+    // (CHỈ TỐN 1 REQUEST GEMINI)
+    // ------------------------------------------------------------------
+    std::string decomposePrompt = std::format(
+        "Bạn là AI Master Coordinator. Hãy phân tích bài toán lớn sau và tự động chia nhỏ thành các subtasks độc lập (từ 2 đến 4 subtasks tùy độ phức tạp) để các worker agents thực hiện song song.\n"
+        "Yêu cầu trả về DUY NHẤT 01 khối JSON có cấu trúc sau:\n"
+        "```json\n"
+        "{{\n"
+        "  \"subtasks\": [\n"
+        "    {{\n"
+        "      \"agent_id\": \"Worker_1\",\n"
+        "      \"instruction\": \"<Chỉ thị chi tiết cụ thể cho Agent 1>\"\n"
+        "    }},\n"
+        "    {{\n"
+        "      \"agent_id\": \"Worker_2\",\n"
+        "      \"instruction\": \"<Chỉ thị chi tiết cụ thể cho Agent 2>\"\n"
+        "    }}\n"
+        "  ],\n"
+        "  \"aggregation_goal\": \"<Chỉ thị tổng hợp và định dạng kết quả cuối cùng>\"\n"
+        "}}\n"
+        "```\n\n"
+        "Bài toán: {}", complexUserTask
+    );
+
+    nlohmann::json planMsg = nlohmann::json::array({
+        {{"role", "user"}, {"content", decomposePrompt}}
+    });
+
+    std::cout << "[Gemini Coordinator] Đang phân tích và tự quyết định số lượng Sub-Agents cần thiết...\n";
+    auto planRes = _client->chat(planMsg);
+    if (!planRes.has_value()) {
+        return std::unexpected("[Gemini Decompose Error]: " + planRes.error());
+    }
+
+    MultiAgentTask multiTask{
+        .id = "dynamic_multi_agent_task",
+        .description = complexUserTask,
+        .subtasks = {},
+        .aggregationInstruction = "Tổng hợp và đối chiếu kết quả từ các worker để đưa ra kết luận hoàn chỉnh.",
+        .timeoutSeconds = 120
+    };
+
+    try {
+        std::string raw = *planRes;
+        if (raw.find("```json") != std::string::npos) {
+            raw = raw.substr(raw.find("```json") + 7);
+            raw = raw.substr(0, raw.rfind("```"));
+        } else if (raw.find("```") != std::string::npos) {
+            raw = raw.substr(raw.find("```") + 3);
+            raw = raw.substr(0, raw.rfind("```"));
+        }
+        
+        size_t firstBrace = raw.find('{');
+        size_t lastBrace = raw.rfind('}');
+        if (firstBrace != std::string::npos && lastBrace != std::string::npos && lastBrace > firstBrace) {
+            raw = raw.substr(firstBrace, lastBrace - firstBrace + 1);
+        }
+
+        nlohmann::json planJson = nlohmann::json::parse(raw);
+        multiTask.aggregationInstruction = planJson.value("aggregation_goal", multiTask.aggregationInstruction);
+
+        if (planJson.contains("subtasks") && planJson["subtasks"].is_array()) {
+            int index = 1;
+            for (const auto& item : planJson["subtasks"]) {
+                std::string id = item.value("agent_id", std::format("Worker_{}", index));
+                std::string instr = item.value("instruction", "");
+                if (!instr.empty()) {
+                    multiTask.subtasks.push_back({
+                        .agentId = id,
+                        .instruction = instr,
+                        .maxSteps = 6
+                    });
+                    index++;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << std::format("[Warning]: Không thể parse JSON từ Gemini ({}), chuyển sang phân rã 2 Subtasks mặc định.\n", e.what());
+    }
+
+    // Fallback an toàn nếu không parse được mảng subtasks
+    if (multiTask.subtasks.empty()) {
+        multiTask.subtasks.push_back({
+            .agentId = "Worker_1",
+            .instruction = complexUserTask + " (Phân đoạn 1: Thu thập / Phân tích số liệu ban đầu)",
+            .maxSteps = 6
+        });
+        multiTask.subtasks.push_back({
+            .agentId = "Worker_2",
+            .instruction = complexUserTask + " (Phân đoạn 2: Thu thập / Phân tích số liệu đối chiếu)",
+            .maxSteps = 6
+        });
+    }
+
+    std::cout << std::format("[Coordinator] Gemini quyết định tạo ra {} Sub-Agents song song:\n", multiTask.subtasks.size());
+    for (const auto& st : multiTask.subtasks) {
+        std::cout << std::format("   • [{}] -> {}\n", st.agentId, st.instruction);
+    }
+    std::cout << "\n";
+
+    return runMultiAgentTask(multiTask);
 }

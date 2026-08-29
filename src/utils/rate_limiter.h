@@ -5,35 +5,39 @@
 #include <chrono>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 
 namespace agent::utils {
 
 /**
- * @brief Thread-safe Sliding Window Rate Limiter đo và điều tiết RPM (Requests Per Minute).
- * Nếu vượt quá giới hạn RPM cấu hình, hàm acquire() sẽ tự động tạm dừng (sleep) cho đến khi có slot trống.
+ * @brief Thread-safe Sliding Window Rate Limiter đo và điều tiết RPM (Requests Per Minute) theo từng Endpoint/Provider.
+ * Tách biệt hoàn toàn lưu lượng của Gemini (giới hạn 15 RPM) và Llama/Ollama (không giới hạn hoặc cấu hình riêng).
  */
 class RateLimiter {
 private:
-    int _maxRPM; // 0: không giới hạn (unlimited)
-    std::deque<std::chrono::steady_clock::time_point> _requestTimestamps;
+    int _geminiRPM{15};
+    int _workerRPM{0}; // 0 = unlimited
+    std::unordered_map<std::string, std::deque<std::chrono::steady_clock::time_point>> _timestampsByProvider;
     mutable std::mutex _mutex;
 
-    void cleanupExpired(const std::chrono::steady_clock::time_point& now);
+    void cleanupExpired(const std::string& provider, const std::chrono::steady_clock::time_point& now);
+    std::string resolveProvider(const std::string& url) const;
 
 public:
-    explicit RateLimiter(int maxRPM = 0);
+    explicit RateLimiter(int geminiRPM = 15, int workerRPM = 0);
 
     // Cập nhật cấu hình RPM tối đa
-    void setMaxRPM(int maxRPM);
+    void setGeminiRPM(int rpm);
+    void setWorkerRPM(int rpm);
 
-    // Lấy giới hạn RPM đã cấu hình
-    int getMaxRPM() const;
+    int getGeminiRPM() const;
+    int getWorkerRPM() const;
 
-    // Đo số lượng Request thực tế đã gửi trong cửa sổ 60 giây gần nhất
-    int getCurrentRPM();
+    // Đo số lượng Request thực tế đã gửi trong cửa sổ 60 giây gần nhất theo provider
+    int getCurrentRPM(const std::string& provider = "gemini");
 
-    // Xin quyền gửi request: Nếu vượt RPM, tự động sleep và log thông báo
-    void acquire();
+    // Xin quyền gửi request: Kiểm tra theo URL cụ thể
+    void acquire(const std::string& url = "");
 
     // Singleton instance cho toàn bộ ứng dụng
     static RateLimiter& instance();

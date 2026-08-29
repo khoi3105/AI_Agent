@@ -269,7 +269,7 @@ void AgentGUI::renderMainChatAndTrajectory() {
     ImGui::InputTextMultiline("##PromptInput", _promptBuffer, sizeof(_promptBuffer), ImVec2(-1, 70));
 
     ImGui::Spacing();
-    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "🧠 VẾT SUY LUẬN & THỰC THI THỜI GIAN THỰC (LIVE RE-ACT TRACE):");
+    ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), " VẾT SUY LUẬN & THỰC THI THỜI GIAN THỰC (LIVE RE-ACT TRACE):");
 
     // Khung cuộn chứa các Step Cards
     ImGui::BeginChild("TrajectoryScrollRegion", ImVec2(-1, -160), true);
@@ -286,7 +286,7 @@ void AgentGUI::renderMainChatAndTrajectory() {
 
             if (ImGui::CollapsingHeader(headerTitle.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
                 // 1. Thought
-                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), "🧠 Thought:");
+                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.2f, 1.0f), " Thought:");
                 ImGui::Indent();
                 ImGui::TextWrapped("%s", s.thought.c_str());
                 ImGui::Unindent();

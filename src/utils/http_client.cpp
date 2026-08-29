@@ -16,8 +16,8 @@ std::expected<std::string, std::string> HttpClient::postJson(
     const std::vector<std::string>& extra_headers,
     long timeout_seconds) 
 {
-    // Kiểm soát tốc độ gửi request và tự động chờ nếu vượt quá RPM đã cấu hình
-    RateLimiter::instance().acquire();
+    // Kiểm soát tốc độ gửi request theo endpoint/domain
+    RateLimiter::instance().acquire(url);
 
     CURL* curl = curl_easy_init();
     if (!curl) return std::unexpected("Không thể khởi tạo libcurl handle");
