@@ -72,3 +72,7 @@ Testing/
 .env
 
 *.db
+
+# Benchmark results
+benchmark/results/*.json
+!benchmark/results/.gitkeep
