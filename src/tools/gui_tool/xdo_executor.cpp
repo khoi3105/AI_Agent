@@ -115,3 +115,16 @@ std::expected<std::pair<int, int>, std::string> XdoExecutor::getMouseLocation() 
     }
     return std::make_pair(x, y);
 }
+
+std::pair<int, int> XdoExecutor::getScreenSize() const {
+    if (!_xdo) {
+        return {1920, 1080}; // Default fallback
+    }
+    unsigned int width = 0;
+    unsigned int height = 0;
+    if (xdo_get_viewport_dimensions(_xdo, &width, &height, 0) == XDO_SUCCESS && width > 0 && height > 0) {
+        return {static_cast<int>(width), static_cast<int>(height)};
+    }
+    return {1920, 1080};
+}
+

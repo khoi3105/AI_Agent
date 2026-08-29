@@ -1,5 +1,6 @@
 #include "gui_action_tool.h"
 #include <format>
+#include <iostream>
 
 GuiActionTool::GuiActionTool(const char* display) : _executor(display) {}
 
@@ -8,7 +9,21 @@ std::string GuiActionTool::getName() const {
 }
 
 std::string GuiActionTool::getDescription() const {
-    return "Thực thi các hành động điều khiển giao diện Desktop (chuột & bàn phím) qua libxdo: click, double_click, move, type_text, key_press, mouse_down, mouse_up.";
+    return "Thực thi các hành động điều khiển giao diện Desktop (chuột & bàn phím) qua libxdo: click, double_click, move, type_text, key_press, mouse_down, mouse_up. Tọa độ (x, y) sử dụng hệ chuẩn hóa [0, 1000].";
+}
+
+std::pair<int, int> GuiActionTool::resolveCoordinates(int raw_x, int raw_y) const {
+    auto [screenWidth, screenHeight] = _executor.getScreenSize();
+
+    // Nếu tọa độ nằm trong khoảng chuẩn hóa [0, 1000], tự động quy đổi sang pixel thực tế
+    if (raw_x >= 0 && raw_x <= 1000 && raw_y >= 0 && raw_y <= 1000) {
+        int actual_x = static_cast<int>((raw_x / 1000.0) * screenWidth);
+        int actual_y = static_cast<int>((raw_y / 1000.0) * screenHeight);
+        return {actual_x, actual_y};
+    }
+
+    // Nếu tọa độ đã vượt quá 1000 -> xem như tọa độ pixel tuyệt đối
+    return {raw_x, raw_y};
 }
 
 std::string GuiActionTool::execute(const nlohmann::json& args) {
@@ -22,42 +37,48 @@ std::string GuiActionTool::execute(const nlohmann::json& args) {
         if (!args.contains("x") || !args.contains("y")) {
             return "[Lỗi gui_action]: Action 'click' yêu cầu cung cấp tọa độ 'x' và 'y'.";
         }
-        int x = args["x"].get<int>();
-        int y = args["y"].get<int>();
+        int raw_x = args["x"].get<int>();
+        int raw_y = args["y"].get<int>();
+        auto [actual_x, actual_y] = resolveCoordinates(raw_x, raw_y);
         int button = args.value("button", 1);
 
-        auto res = _executor.click(x, y, button);
+        auto res = _executor.click(actual_x, actual_y, button);
         if (!res.has_value()) {
             return std::format("[Lỗi gui_action]: {}", res.error());
         }
-        return std::format("Đã click chuột thành công tại tọa độ ({}, {}) với button {}.", x, y, button);
+        return std::format("Đã click chuột tại pixel ({}, {}) [Tọa độ gốc: x={}, y={}] với button {}.", 
+                           actual_x, actual_y, raw_x, raw_y, button);
     }
     else if (action == "double_click") {
         if (!args.contains("x") || !args.contains("y")) {
             return "[Lỗi gui_action]: Action 'double_click' yêu cầu cung cấp tọa độ 'x' và 'y'.";
         }
-        int x = args["x"].get<int>();
-        int y = args["y"].get<int>();
+        int raw_x = args["x"].get<int>();
+        int raw_y = args["y"].get<int>();
+        auto [actual_x, actual_y] = resolveCoordinates(raw_x, raw_y);
         int button = args.value("button", 1);
 
-        auto res = _executor.doubleClick(x, y, button);
+        auto res = _executor.doubleClick(actual_x, actual_y, button);
         if (!res.has_value()) {
             return std::format("[Lỗi gui_action]: {}", res.error());
         }
-        return std::format("Đã double-click chuột thành công tại tọa độ ({}, {}).", x, y);
+        return std::format("Đã double-click chuột tại pixel ({}, {}) [Tọa độ gốc: x={}, y={}].", 
+                           actual_x, actual_y, raw_x, raw_y);
     }
     else if (action == "move") {
         if (!args.contains("x") || !args.contains("y")) {
             return "[Lỗi gui_action]: Action 'move' yêu cầu cung cấp tọa độ 'x' và 'y'.";
         }
-        int x = args["x"].get<int>();
-        int y = args["y"].get<int>();
+        int raw_x = args["x"].get<int>();
+        int raw_y = args["y"].get<int>();
+        auto [actual_x, actual_y] = resolveCoordinates(raw_x, raw_y);
 
-        auto res = _executor.mouseMove(x, y);
+        auto res = _executor.mouseMove(actual_x, actual_y);
         if (!res.has_value()) {
             return std::format("[Lỗi gui_action]: {}", res.error());
         }
-        return std::format("Đã di chuyển con trỏ chuột đến tọa độ ({}, {}).", x, y);
+        return std::format("Đã di chuyển con trỏ chuột đến pixel ({}, {}) [Tọa độ gốc: x={}, y={}].", 
+                           actual_x, actual_y, raw_x, raw_y);
     }
     else if (action == "type_text") {
         if (!args.contains("text") || !args["text"].is_string()) {
@@ -74,7 +95,7 @@ std::string GuiActionTool::execute(const nlohmann::json& args) {
     }
     else if (action == "key_press") {
         if (!args.contains("key") || !args["key"].is_string()) {
-            return "[Lỗi gui_action]: Action 'key_press' yêu cầu tham số chuỗi 'key' (ví dụ: 'Return', 'ctrl+c', 'ctrl+v', 'Escape', 'Tab', 'BackSpace').";
+            return "[Lỗi gui_action]: Action 'key_press' yêu cầu tham số chuỗi 'key' (ví dụ: 'Return', 'Control_L+l', 'Control_L+t', 'Control_L+w', 'Escape', 'Tab', 'BackSpace').";
         }
         std::string key = args["key"].get<std::string>();
         int delay = args.value("delay_microsec", 12000);
@@ -106,7 +127,11 @@ std::string GuiActionTool::execute(const nlohmann::json& args) {
         if (!res.has_value()) {
             return std::format("[Lỗi gui_action]: {}", res.error());
         }
-        return std::format("Vị trí chuột hiện tại: ({}, {})", res.value().first, res.value().second);
+        auto [screenWidth, screenHeight] = _executor.getScreenSize();
+        int norm_x = static_cast<int>((res.value().first * 1000.0) / screenWidth);
+        int norm_y = static_cast<int>((res.value().second * 1000.0) / screenHeight);
+        return std::format("Vị trí chuột hiện tại: pixel ({}, {}) ~ chuẩn hóa [{}/1000, {}/1000] trên màn hình {}x{}", 
+                           res.value().first, res.value().second, norm_x, norm_y, screenWidth, screenHeight);
     }
 
     return std::format("[Lỗi gui_action]: Không hỗ trợ action '{}'. Hỗ trợ: click, double_click, move, type_text, key_press, mouse_down, mouse_up, get_mouse_location.", action);
@@ -128,11 +153,11 @@ nlohmann::json GuiActionTool::get_schema() const {
                     }},
                     {"x", {
                         {"type", "integer"},
-                        {"description", "Tọa độ X trên màn hình Desktop (bắt buộc cho click, double_click, move)."}
+                        {"description", "Tọa độ X chuẩn hóa từ 0 đến 1000 (0 = mép trái, 1000 = mép phải màn hình)."}
                     }},
                     {"y", {
                         {"type", "integer"},
-                        {"description", "Tọa độ Y trên màn hình Desktop (bắt buộc cho click, double_click, move)."}
+                        {"description", "Tọa độ Y chuẩn hóa từ 0 đến 1000 (0 = mép trên, 1000 = mép dưới màn hình)."}
                     }},
                     {"button", {
                         {"type", "integer"},
@@ -144,7 +169,7 @@ nlohmann::json GuiActionTool::get_schema() const {
                     }},
                     {"key", {
                         {"type", "string"},
-                        {"description", "Tên phím hoặc tổ hợp phím cần bấm, ví dụ: 'Return', 'ctrl+c', 'ctrl+v', 'ctrl+t', 'ctrl+l', 'Escape', 'Tab', 'BackSpace', 'Alt_L+F4' (bắt buộc cho key_press)."}
+                        {"description", "Tên phím hoặc tổ hợp phím cần bấm, ví dụ: 'Return', 'Control_L+l', 'Control_L+t', 'Control_L+w', 'Escape', 'Tab', 'BackSpace' (bắt buộc cho key_press)."}
                     }}
                 }},
                 {"required", {"action"}}

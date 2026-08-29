@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
 
             cout << "[Task]: \"" << gui_task << "\"\n\n";
 
-            GUIAgentLoop gui_agent(8, "/tmp/agent_screenshot.png");
+            GUIAgentLoop gui_agent(20, "/tmp/agent_screenshot.png");
             gui_agent.setActionDelayMs(1000); // 1s giữa các thao tác
 
             auto result = gui_agent.run(gui_task, client);

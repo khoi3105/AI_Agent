@@ -40,6 +40,7 @@ public:
     std::expected<void, std::string> typeText(const std::string& text, unsigned int delay_microsec = 12000);
     std::expected<void, std::string> keyPress(const std::string& key, unsigned int delay_microsec = 12000);
     std::expected<std::pair<int, int>, std::string> getMouseLocation() const;
+    std::pair<int, int> getScreenSize() const;
 };
 
 #endif // XDO_EXECUTOR_H
