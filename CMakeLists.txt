@@ -46,7 +46,7 @@ target_include_directories(main PRIVATE
 # Liên kết với các thư viện
 target_link_libraries(main PRIVATE 
     CURL::libcurl
-    SQLite::SQLite3
+    SQLite3::SQLite3
     ${POPPLER_LIBRARIES}
     ${GUMBO_LIBRARIES}
     xdo

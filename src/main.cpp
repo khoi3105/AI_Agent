@@ -36,7 +36,7 @@ void printHelp(const char* progName) {
     println("  {} [tùy chọn] [yêu cầu]\n", progName);
     println("Các tùy chọn:");
     println("  --web, -w                     : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)");
-    println("  --gui-agent, --gui, -g, -a, gui: Khởi chạy Desktop GUI Agent (Computer Use & Multi-Agent Coordination)");
+    println("  --gui-agent, --gui, -g, -a, gui: Khởi chạy Desktop GUI Agent phải xài lệnh: DISPLAY=:0 XAUTHORITY=/home/kali/.Xauthority, chi tiết xem ở file README.md");
     println("  --multi-agent, -m             : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)");
     println("  --eval, -b                    : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)");
     println("  --task <id>                   : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)");
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
         cout << "1. Nhap yeu cau / cau hoi truc tiep cho AI Agent (CLI)\n";
         cout << "2. Chay toan bo bo danh gia Benchmark (10 Tasks)\n";
         cout << "3. Chay kiem tra rieng 01 Task cu the\n";
-        cout << "4. Khoi chay GUI Agent Desktop Automation (Computer Use)\n";
+        // cout << "4. Khoi chay GUI Agent Desktop Automation (Computer Use)\n";
         cout << "5. Khoi chay Web GUI Dashboard (Trình duyệt - Tiếng Việt)\n";
         cout << "6. Khoi chay Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
         cout << "7. Thoat chuong trinh\n";

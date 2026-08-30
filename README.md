@@ -10,12 +10,19 @@
 
 ### Cài Đặt Thư Viện Phụ Thuộc (Ubuntu / Debian):
 ```bash
-sudo apt update
-sudo apt install -y build-essential cmake pkg-config \
-                    libcurl4-openssl-dev \
-                    libsqlite3-dev \
-                    libpoppler-cpp-dev \
-                    libgumbo-dev
+sudo apt update && sudo apt install -y \
+    build-essential \
+    cmake \
+    pkg-config \
+    ninja-build \
+    libcurl4-openssl-dev \
+    nlohmann-json3-dev \
+    libpoppler-cpp-dev \
+    sqlite3 libsqlite3-dev \
+    libgumbo-dev \
+    libxdo-dev \
+    xdotool \
+    maim
 ```
 
 ---

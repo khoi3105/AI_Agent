@@ -59,15 +59,18 @@ nlohmann::json WebServer::getMemoriesJson() {
 }
 
 nlohmann::json WebServer::getTasksJson() {
-    ifstream f("benchmark/tasks.json");
-    if (!f.is_open()) return nlohmann::json::array();
-    try {
-        nlohmann::json j;
-        f >> j;
-        return j;
-    } catch (...) {
-        return nlohmann::json::array();
+    std::vector<std::string> candidates = {"benchmark/tasks.json", "../benchmark/tasks.json"};
+    for (const auto& p : candidates) {
+        ifstream f(p);
+        if (f.is_open()) {
+            try {
+                nlohmann::json j;
+                f >> j;
+                return j;
+            } catch (...) {}
+        }
     }
+    return nlohmann::json::array();
 }
 
 nlohmann::json WebServer::getToolsJson() {
@@ -85,17 +88,26 @@ void WebServer::start() {
     });
 
     // 1. Phục vụ trang chủ Web UI
-    svr.Get("/", [this](const httplib::Request&, httplib::Response& res) {
-        string htmlPath = _webDir + "/index.html";
-        ifstream f(htmlPath);
-        if (f.is_open()) {
-            stringstream ss;
-            ss << f.rdbuf();
-            res.set_content(ss.str(), "text/html; charset=utf-8");
-        } else {
-            res.set_content("<h1>Khong tim thay file web/index.html!</h1>", "text/html; charset=utf-8");
+    auto serveIndex = [this](const httplib::Request&, httplib::Response& res) {
+        std::vector<std::string> candidatePaths = {
+            _webDir + "/index.html",
+            "../" + _webDir + "/index.html",
+            "../../" + _webDir + "/index.html"
+        };
+        for (const auto& path : candidatePaths) {
+            ifstream f(path);
+            if (f.is_open()) {
+                stringstream ss;
+                ss << f.rdbuf();
+                res.set_content(ss.str(), "text/html; charset=utf-8");
+                return;
+            }
         }
-    });
+        res.set_content("<h1>Khong tim thay file web/index.html! Vui long dam bao thu muc web/ nam dung vi tri.</h1>", "text/html; charset=utf-8");
+    };
+
+    svr.Get("/", serveIndex);
+    svr.Get("/index.html", serveIndex);
 
     // 2. API Trạng thái hệ thống
     svr.Get("/api/status", [this](const httplib::Request&, httplib::Response& res) {
@@ -573,7 +585,8 @@ void WebServer::start() {
 
     cout << "\n=================================================================\n";
     cout << "  🚀 C++ AI AGENT WEB GUI DASHBOARD DA KHOI DONG THANH CONG!     \n";
-    cout << format("  🌐 Dia chi truy cap: http://localhost:{}\n", _port);
+    cout << format("  🌐 Truy cap cuc bo (tren may nay): http://localhost:{}\n", _port);
+    cout << format("  🌐 Truy cap tu may khac (cung mang LAN): http://<IP_MAY_NAY>:{}\n", _port);
     cout << "  ✨ Ho tro Tieng Viet 100%, Giao dien Dark Mode Tham my cao     \n";
     cout << "  👉 Hay mo trinh duyet (Chrome/Firefox/Edge) de trai nghiem!    \n";
     cout << "=================================================================\n\n";
