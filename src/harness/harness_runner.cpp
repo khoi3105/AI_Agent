@@ -65,6 +65,15 @@ HarnessRunner::HarnessRunner(
 std::expected<bool, std::string> HarnessRunner::loadTasks(const std::string& tasksFilePath) {
     std::ifstream file(tasksFilePath);
     if (!file.is_open()) {
+        file.open("AI_Agent/" + tasksFilePath);
+    }
+    if (!file.is_open()) {
+        file.open("AI_Agent/benchmark/tasks.json");
+    }
+    if (!file.is_open()) {
+        file.open("benchmark/tasks.json");
+    }
+    if (!file.is_open()) {
         return std::unexpected(std::format("Cannot open tasks file: {}", tasksFilePath));
     }
 
@@ -441,7 +450,7 @@ std::expected<std::string, std::string> HarnessRunner::runMultiAgentTask(const M
     }
 
     // 3. HarnessRunner khởi chạy AgentLoop với Coordinator Client (Gemini) để tổng hợp kết quả và thực thi Tool (ghi file, v.v.)
-    std::cout << "\n[Coordinator] 🧠 Khởi động AgentLoop tổng hợp kết quả và thực thi hành động qua Gemini...\n";
+    std::cout << "\n[Coordinator] Khởi động AgentLoop tổng hợp kết quả và thực thi hành động qua Gemini...\n";
     
     std::string subFindings = "";
     for (const auto& subtask : task.subtasks) {

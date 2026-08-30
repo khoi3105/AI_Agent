@@ -45,7 +45,9 @@ bool ToolPolicy::isAllowedTool(const std::string& tool_name) const {
         tool_name == "weather" ||
         tool_name == "memory_save" ||
         tool_name == "memory_search" ||
-        tool_name == "web_search";
+        tool_name == "web_search" ||
+        tool_name == "capture_screenshot" ||
+        tool_name == "gui_action";
 }
 
 std::expected<void, std::string> ToolPolicy::validateArgs(const std::string& tool_name, const nlohmann::json& args) const {
@@ -193,6 +195,22 @@ std::expected<void, std::string> ToolPolicy::validateArgs(const std::string& too
             return std::unexpected(
                 "[ToolPolicy] web_search.query "
                 "phải là string."
+            );
+        }
+    }
+
+    else if (tool_name == "capture_screenshot") {
+        if (args.contains("output_path") && !args["output_path"].is_string()) {
+            return std::unexpected(
+                "[ToolPolicy] capture_screenshot.output_path phải là string."
+            );
+        }
+    }
+
+    else if (tool_name == "gui_action") {
+        if (!args.contains("action") || !args["action"].is_string()) {
+            return std::unexpected(
+                "[ToolPolicy] gui_action thiếu tham số 'action'."
             );
         }
     }

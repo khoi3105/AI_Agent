@@ -36,7 +36,7 @@ void printHelp(const char* progName) {
     println("  {} [tùy chọn] [yêu cầu]\n", progName);
     println("Các tùy chọn:");
     println("  --web, -w                     : Khởi chạy Web GUI Dashboard (Tiếng Việt, port 8080)");
-    println("  --gui-agent, --gui, -g, -a, gui: Khởi chạy Desktop GUI Agent (Computer Use & Multi-Agent Coordination)");
+    println("  --gui-agent, --gui, -g, -a, gui: Khởi chạy Desktop GUI Agent phải xài lệnh: DISPLAY=:0 XAUTHORITY=/home/kali/.Xauthority, chi tiết xem ở file README.md");
     println("  --multi-agent, -m             : Khởi chạy Hybrid Multi-Agent Coordination (Gemini + Llama)");
     println("  --eval, -b                    : Chạy toàn bộ bộ đánh giá Benchmark (10 Tasks)");
     println("  --task <id>                   : Chạy riêng 01 Task Benchmark (ví dụ: --task task_001)");
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
 
         if (arg1 == "--web" || arg1 == "-w") {
             printBanner();
-            WebServer server(client, env, 8080, "web");
+            WebServer server(client, env, 8080, "web", worker_client);
             server.start();
             return 0;
         }
@@ -111,11 +111,11 @@ int main(int argc, char* argv[]) {
             GUIAgentLoop gui_agent(20, "/tmp/agent_screenshot.png");
             gui_agent.setActionDelayMs(1000); // 1s giữa các thao tác
 
-            auto result = gui_agent.coordinateTask(gui_task, client, worker_client);
+            auto result = gui_agent.run(gui_task, client);
             if (result.has_value()) {
-                cout << "\n=== KET QUA HOAN TAT MULTI-AGENT GUI ===\n" << result.value() << endl;
+                cout << "\n[Ket qua GUI Agent]:\n" << result.value() << endl;
             } else {
-                cerr << "\n=== LOI THUC THI MULTI-AGENT GUI ===\n" << result.error() << endl;
+                cerr << "\n[Loi GUI Agent]: " << result.error() << endl;
             }
             return 0;
         }
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
         cout << "1. Nhap yeu cau / cau hoi truc tiep cho AI Agent (CLI)\n";
         cout << "2. Chay toan bo bo danh gia Benchmark (10 Tasks)\n";
         cout << "3. Chay kiem tra rieng 01 Task cu the\n";
-        cout << "4. Khoi chay GUI Agent Desktop Automation (Multi-Agent Computer Use)\n";
+        // cout << "4. Khoi chay GUI Agent Desktop Automation (Computer Use)\n";
         cout << "5. Khoi chay Web GUI Dashboard (Trình duyệt - Tiếng Việt)\n";
         cout << "6. Khoi chay Hybrid Multi-Agent Coordination (Gemini + Llama)\n";
         cout << "7. Thoat chuong trinh\n";
@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
         }
         cin.ignore(); // Xoa newline con lai
 
-        if (choice == 1) {
+        if (1 == choice) {
             cout << "\nNhap nhiem vu ban muon AI Agent thuc hien:\n> ";
             string task_input;
             getline(cin, task_input);
@@ -244,13 +244,13 @@ int main(int argc, char* argv[]) {
             } else {
                 cerr << "\n=== LOI ===\n" << res.error() << "\n\n";
             }
-        } else if (choice == 2) {
+        } else if (2 == choice) {
             cout << "\n[Benchmark]: Bat dau danh gia toan bo 10 Tasks...\n";
             HarnessRunner runner(client, env, "benchmark/results", worker_client);
             if (runner.loadTasks("benchmark/tasks.json").has_value()) {
                 runner.runBatch();
             }
-        } else if (choice == 3) {
+        } else if (3 == choice) {
             cout << "\nNhap Task ID (vi du: task_001, task_005, task_010):\n> ";
             string taskId;
             getline(cin, taskId);
@@ -268,25 +268,25 @@ int main(int argc, char* argv[]) {
                     cout << format("[Warning]: Khong tim thay Task '{}'!\n", taskId);
                 }
             }
-        } else if (choice == 4) {
-            cout << "\nNhap yeu cau cho Multi-Agent GUI Desktop Automation (hoac Enter de dung mac dinh):\n> ";
+        } else if (4 == choice) {
+            cout << "\nNhap yeu cau cho GUI Agent dieu khien may tinh (hoac Enter de dung mac dinh):\n> ";
             string gui_task;
             getline(cin, gui_task);
             if (gui_task.empty()) {
                 gui_task = "Quan sát màn hình Desktop hiện tại, mở terminal hoặc trình duyệt web, tìm kiếm thông tin và tổng kết kết quả.";
             }
-            GUIAgentLoop gui_agent(20, "/tmp/agent_screenshot.png");
+            GUIAgentLoop gui_agent(8, "/tmp/agent_screenshot.png");
             gui_agent.setActionDelayMs(1000);
-            auto res = gui_agent.coordinateTask(gui_task, client, worker_client);
+            auto res = gui_agent.run(gui_task, client);
             if (res.has_value()) {
-                cout << "\n=== KET QUA MULTI-AGENT GUI AGENT ===\n" << res.value() << "\n\n";
+                cout << "\n=== KET QUA GUI AGENT ===\n" << res.value() << "\n\n";
             } else {
-                cerr << "\n=== LOI MULTI-AGENT GUI AGENT ===\n" << res.error() << "\n\n";
+                cerr << "\n=== LOI GUI AGENT ===\n" << res.error() << "\n\n";
             }
-        } else if (choice == 5) {
-            WebServer server(client, env, 8080, "web");
+        } else if (5 == choice) {
+            WebServer server(client, env, 8080, "web", worker_client);
             server.start();
-        } else if (choice == 6) {
+        } else if (6 == choice) {
             cout << "\nNhap nhiem vu phuc tap can Multi-Agent phan chia xu ly (hoac Enter de dung demo mac dinh):\n> ";
             string multi_task;
             getline(cin, multi_task);
@@ -300,7 +300,7 @@ int main(int argc, char* argv[]) {
             } else {
                 cerr << "\n=== LOI MULTI-AGENT ===\n" << res.error() << "\n\n";
             }
-        } else if (choice == 7) {
+        } else if (7 == choice) {
             cout << "\nTam biet! Cam on ban da su dung AI Agent.\n";
             break;
         }
