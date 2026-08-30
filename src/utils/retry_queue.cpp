@@ -109,11 +109,11 @@ void RetryQueue::runCountdown(int total_seconds, const std::string& context_info
     if (total_seconds <= 0) total_seconds = 1;
 
     for (int remaining = total_seconds; remaining > 0; --remaining) {
-        std::print(stderr, "\r⏳ [{}] Gặp mã 429 (Rate Limit). Tự động gửi lại sau {:02d}s... ", context_info, remaining);
+        std::print(stderr, "\r [{}] Gặp mã 429 (Rate Limit). Tự động gửi lại sau {:02d}s... ", context_info, remaining);
         std::fflush(stderr);
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-    std::println(stderr, "\r🚀 [{}] Đã hết thời gian chờ, tiến hành gửi lại request...                       ", context_info);
+    std::println(stderr, "\r [{}] Đã hết thời gian chờ, tiến hành gửi lại request...                       ", context_info);
 }
 
 } // namespace agent::utils

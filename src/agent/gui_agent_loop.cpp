@@ -353,7 +353,7 @@ std::expected<std::string, std::string> GUIAgentLoop::runMultiAgentTask(
         }
     }
 
-    std::cout << "\n[Coordinator] 🧠 Tong hop ket qua toan bo GUI Multi-Agent Workflow qua Coordinator...\n";
+    std::cout << "\n[Coordinator] Tong hop ket qua toan bo GUI Multi-Agent Workflow qua Coordinator...\n";
     
     std::string subFindings = "";
     for (const auto& subtask : task.subtasks) {

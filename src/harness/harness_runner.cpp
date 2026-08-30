@@ -450,7 +450,7 @@ std::expected<std::string, std::string> HarnessRunner::runMultiAgentTask(const M
     }
 
     // 3. HarnessRunner khởi chạy AgentLoop với Coordinator Client (Gemini) để tổng hợp kết quả và thực thi Tool (ghi file, v.v.)
-    std::cout << "\n[Coordinator] 🧠 Khởi động AgentLoop tổng hợp kết quả và thực thi hành động qua Gemini...\n";
+    std::cout << "\n[Coordinator] Khởi động AgentLoop tổng hợp kết quả và thực thi hành động qua Gemini...\n";
     
     std::string subFindings = "";
     for (const auto& subtask : task.subtasks) {
