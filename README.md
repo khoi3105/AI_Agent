@@ -29,8 +29,11 @@ sudo apt update && sudo apt install -y \
 
 ## 2. Hướng Dẫn Biên Dịch & Chạy Chương Trình
 
+### Note
+File `.env` và `git_pat.md` được nhóm nộp cho thầy trong moodle.    
+
 ### 2.1. Cấu hình biến môi trường
-Tạo file `.env` tại thư mục gốc của dự án:
+Chép file `.env` vào thư mục gốc của dự án:
 ```env
 LLAMA_API_KEY=
 WEATHER_API_KEY=
@@ -38,6 +41,7 @@ GEMINI_API_KEY=
 ```
 
 ### 2.2. Biên dịch với CMake
+Tại thư mục gốc của dự án:
 ```bash
 # Tạo thư mục build và cấu hình
 cmake -B build
